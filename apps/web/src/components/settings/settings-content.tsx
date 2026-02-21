@@ -9,6 +9,7 @@ import { BillingTab } from "./tabs/billing-tab";
 import { AccountTab } from "./tabs/account-tab";
 import { EditorTab } from "./tabs/editor-tab";
 import type { UserSettings } from "@/lib/user-settings-store";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 const TABS = [
 	{ id: "general", label: "General", icon: Settings },
@@ -31,6 +32,7 @@ export function SettingsContent({
 }: SettingsContentProps) {
 	const [activeTab, setActiveTab] = useState<TabId>("general");
 	const [settings, setSettings] = useState(initialSettings);
+	const { emit } = useMutationEvents();
 
 	async function handleUpdate(updates: Partial<UserSettings>) {
 		const res = await fetch("/api/user-settings", {
@@ -41,6 +43,7 @@ export function SettingsContent({
 		if (res.ok) {
 			const updated = await res.json();
 			setSettings(updated);
+			emit({ type: "settings:updated" });
 		}
 	}
 

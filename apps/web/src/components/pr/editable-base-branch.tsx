@@ -9,6 +9,7 @@ import {
 	fetchBranchNames,
 	updatePRBaseBranch,
 } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface EditableBaseBranchProps {
 	owner: string;
@@ -28,6 +29,7 @@ export function EditableBaseBranch({
 	canEdit,
 }: EditableBaseBranchProps) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [open, setOpen] = useState(false);
 	const [branches, setBranches] = useState<string[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -59,6 +61,7 @@ export function EditableBaseBranch({
 		startTransition(async () => {
 			const result = await updatePRBaseBranch(owner, repo, pullNumber, branch);
 			if (result.success) {
+				emit({ type: "pr:branch-updated", owner, repo, number: pullNumber });
 				setOpen(false);
 				router.refresh();
 			}

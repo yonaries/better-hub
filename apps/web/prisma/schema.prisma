@@ -252,3 +252,20 @@ model SearchEmbedding {
   @@index([userId, contentType, contentKey])
   @@map("search_embeddings")
 }
+
+// ─── Pinned items ──────────────────────────────────────────────────────────
+
+model PinnedItem {
+  id       String @id
+  userId   String
+  owner    String
+  repo     String
+  url      String
+  title    String
+  itemType String
+  pinnedAt String
+
+  @@unique([userId, owner, repo, url])
+  @@index([userId, owner, repo])
+  @@map("pinned_items")
+}

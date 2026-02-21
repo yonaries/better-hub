@@ -35,6 +35,7 @@ import {
 	MessageSquareText,
 	Code,
 	Eye,
+	Pin,
 } from "lucide-react";
 import { signOut } from "@/lib/auth-client";
 import { cn, formatNumber } from "@/lib/utils";
@@ -43,6 +44,10 @@ import { getRecentViews, type RecentViewItem } from "@/lib/recent-views";
 import { useColorTheme } from "@/components/theme/theme-provider";
 import { useCodeTheme } from "@/components/theme/code-theme-provider";
 import { BUILT_IN_THEMES } from "@/lib/code-themes/built-in";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
+import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
+import type { MutationEvent } from "@/lib/mutation-events";
+import { pinToOverview, unpinFromOverview, getPinnedUrlsForRepo } from "@/app/(app)/repos/[owner]/[repo]/pin-actions";
 
 interface SearchRepo {
 	id: number;
@@ -144,6 +149,7 @@ export function CommandMenu() {
 	} = useColorTheme();
 	const { codeThemeDark, codeThemeLight, setCodeThemeDark, setCodeThemeLight } =
 		useCodeTheme();
+	const { emit } = useMutationEvents();
 
 	// Recently viewed
 	const [recentViews, setRecentViews] = useState<RecentViewItem[]>([]);
@@ -169,6 +175,10 @@ export function CommandMenu() {
 		useOwnApiKey: boolean;
 	} | null>(null);
 	const [settingsLoading, setSettingsLoading] = useState(false);
+
+	// Pin state
+	const [pinnedUrls, setPinnedUrls] = useState<string[]>([]);
+	const pinnedRepoRef = useRef<string>("");
 
 	// File tree state (for "Go to file" on repo pages)
 	const repoContext = useMemo(() => matchRepoFromPathname(pathname), [pathname]);
@@ -314,6 +324,43 @@ export function CommandMenu() {
 			cancelled = true;
 		};
 	}, [open, mode, repoContext]); // eslint-disable-line react-hooks/exhaustive-deps
+
+	// Fetch pinned URLs when menu opens with repo context
+	useEffect(() => {
+		if (!open || !repoContext) return;
+		const repoKey = `${repoContext[0]}/${repoContext[1]}`;
+		if (pinnedRepoRef.current === repoKey) return;
+
+		let cancelled = false;
+		(async () => {
+			try {
+				const urls = await getPinnedUrlsForRepo(repoContext[0], repoContext[1]);
+				if (!cancelled) {
+					pinnedRepoRef.current = repoKey;
+					setPinnedUrls(urls);
+				}
+			} catch {
+				// silent
+			}
+		})();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [open, repoContext]);
+
+	// Subscribe to pin events to keep pinnedUrls in sync
+	useMutationSubscription(
+		["pin:added", "pin:removed"],
+		(event: MutationEvent) => {
+			if (!repoContext) return;
+			if (event.type === "pin:added" && event.owner === repoContext[0] && event.repo === repoContext[1]) {
+				setPinnedUrls((prev) => prev.includes(event.url) ? prev : [...prev, event.url]);
+			} else if (event.type === "pin:removed" && event.owner === repoContext[0] && event.repo === repoContext[1]) {
+				setPinnedUrls((prev) => prev.filter((u) => u !== event.url));
+			}
+		},
+	);
 
 	useEffect(() => {
 		setMounted(true);
@@ -554,6 +601,30 @@ export function CommandMenu() {
 		setGithubLoading(false);
 	}, []);
 
+	function derivePinTitle(p: string, base: string, owner: string, repo: string): string {
+		const rel = p.replace(base, "");
+		const pullMatch = rel.match(/^\/pulls\/(\d+)/);
+		if (pullMatch) return `PR #${pullMatch[1]}`;
+		const issueMatch = rel.match(/^\/issues\/(\d+)/);
+		if (issueMatch) return `Issue #${issueMatch[1]}`;
+		const commitMatch = rel.match(/^\/commits?\/([a-f0-9]{7,})/);
+		if (commitMatch) return `Commit ${commitMatch[1].slice(0, 7)}`;
+		const segments = rel.split("/").filter(Boolean);
+		if (segments.length > 0) {
+			const section = segments[0].charAt(0).toUpperCase() + segments[0].slice(1);
+			return `${section} - ${owner}/${repo}`;
+		}
+		return `${owner}/${repo}`;
+	}
+
+	function derivePinItemType(p: string, base: string): string {
+		const rel = p.replace(base, "");
+		if (rel.startsWith("/pulls/")) return "pr";
+		if (rel.startsWith("/issues/")) return "issue";
+		if (rel.match(/^\/commits?\//)) return "commit";
+		return "page";
+	}
+
 	const tools = useMemo(
 		() => [
 			...(globalChat
@@ -592,6 +663,34 @@ export function CommandMenu() {
 							icon: FileText,
 							keepOpen: true,
 							shortcut: "⌘G",
+						},
+					]
+				: []),
+			...(repoContext && pathname !== `/${repoContext[0]}/${repoContext[1]}`
+				? [
+						{
+							name: pinnedUrls.includes(pathname)
+								? "Unpin this page"
+								: "Pin this page",
+							description: `${pinnedUrls.includes(pathname) ? "Remove from" : "Add to"} repo overview`,
+							keywords: ["pin", "bookmark", "save", "unpin"],
+							action: () => {
+								const [o, r] = repoContext;
+								const base = `/${o}/${r}`;
+								const isPinned = pinnedUrls.includes(pathname);
+								if (isPinned) {
+									setPinnedUrls((prev) => prev.filter((u) => u !== pathname));
+									unpinFromOverview(o, r, pathname);
+									emit({ type: "pin:removed", owner: o, repo: r, url: pathname });
+								} else {
+									const title = derivePinTitle(pathname, base, o, r);
+									const itemType = derivePinItemType(pathname, base);
+									setPinnedUrls((prev) => [...prev, pathname]);
+									pinToOverview(o, r, pathname, title, itemType);
+									emit({ type: "pin:added", owner: o, repo: r, url: pathname, title, itemType });
+								}
+							},
+							icon: Pin,
 						},
 					]
 				: []),
@@ -694,7 +793,7 @@ export function CommandMenu() {
 				icon: Star,
 			},
 		],
-		[router, switchMode, globalChat, repoContext],
+		[router, switchMode, globalChat, repoContext, pinnedUrls, pathname, emit],
 	);
 
 	// --- Commands mode items ---
@@ -1006,11 +1105,12 @@ export function CommandMenu() {
 				});
 				await fetchAccounts();
 				window.dispatchEvent(new Event("github-account-switched"));
+				emit({ type: "github-account:switched" });
 			} catch {
 				// silent
 			}
 		},
-		[fetchAccounts],
+		[fetchAccounts, emit],
 	);
 
 	const handleRemoveAccount = useCallback(
@@ -1023,11 +1123,12 @@ export function CommandMenu() {
 				});
 				await fetchAccounts();
 				window.dispatchEvent(new Event("github-account-switched"));
+				emit({ type: "github-account:removed" });
 			} catch {
 				// silent
 			}
 		},
-		[fetchAccounts],
+		[fetchAccounts, emit],
 	);
 
 	const handleAddAccount = useCallback(async () => {
@@ -1049,12 +1150,13 @@ export function CommandMenu() {
 			setAddingAccount(false);
 			await fetchAccounts();
 			window.dispatchEvent(new Event("github-account-switched"));
+			emit({ type: "github-account:added" });
 		} catch {
 			setPatError("Network error");
 		} finally {
 			setPatSubmitting(false);
 		}
-	}, [patInput, patSubmitting, fetchAccounts]);
+	}, [patInput, patSubmitting, fetchAccounts, emit]);
 
 	const accountItems = useMemo(() => {
 		if (mode !== "accounts" || !accountsData) return [];

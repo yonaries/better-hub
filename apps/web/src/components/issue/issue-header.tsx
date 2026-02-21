@@ -4,6 +4,7 @@ import { CircleDot, CheckCircle2, GitPullRequest, ExternalLink } from "lucide-re
 import { cn } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { CopyLinkButton } from "@/components/shared/copy-link-button";
+import { PinButton } from "@/components/shared/pin-button";
 import type { LinkedPullRequest } from "@/lib/github";
 
 interface IssueHeaderProps {
@@ -17,6 +18,7 @@ interface IssueHeaderProps {
 	owner: string;
 	repo: string;
 	linkedPRs?: LinkedPullRequest[];
+	isPinned?: boolean;
 }
 
 export function IssueHeader({
@@ -30,6 +32,7 @@ export function IssueHeader({
 	owner,
 	repo,
 	linkedPRs,
+	isPinned = false,
 }: IssueHeaderProps) {
 	const isOpen = state === "open";
 
@@ -85,6 +88,14 @@ export function IssueHeader({
 					repo={repo}
 					number={number}
 					type="issues"
+				/>
+				<PinButton
+					owner={owner}
+					repo={repo}
+					url={`/${owner}/${repo}/issues/${number}`}
+					title={`${title} #${number}`}
+					itemType="issue"
+					isPinned={isPinned}
 				/>
 				{labels
 					.filter((l) => l.name)

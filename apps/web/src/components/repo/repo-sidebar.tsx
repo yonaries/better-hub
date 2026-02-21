@@ -107,7 +107,7 @@ export function RepoSidebar({
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1 text-xs">
             <Link
-              href={`/orgs/${owner}`}
+              href={`/${owner}`}
               className="text-muted-foreground/60 hover:text-foreground transition-colors tracking-tight"
             >
               {owner}

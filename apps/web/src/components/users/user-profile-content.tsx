@@ -295,7 +295,7 @@ export function UserProfileContent({
 						{orgs.map((org) => (
 							<Link
 								key={org.login}
-								href={`/orgs/${org.login}`}
+								href={`/${org.login}`}
 								title={org.login}
 								className="relative hover:z-10 transition-transform hover:scale-110"
 							>

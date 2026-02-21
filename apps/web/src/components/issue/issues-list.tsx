@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useTransition, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useTransition, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { CreateIssueDialog } from "./create-issue-dialog";
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
+import { isRepoEvent, type MutationEvent } from "@/lib/mutation-events";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { InfiniteScrollSentinel, LoadingOverlay } from "@/components/shared/list-controls";
 import { LabelBadge } from "@/components/shared/label-badge";
@@ -108,6 +110,31 @@ export function IssuesList({
 	const [promptMenuOpen, setPromptMenuOpen] = useState(false);
 	const [suggestDialogOpen, setSuggestDialogOpen] = useState(false);
 	const promptMenuRef = useRef<HTMLDivElement>(null);
+
+	const [countAdjustments, setCountAdjustments] = useState({ open: 0, closed: 0 });
+
+	useEffect(() => {
+		setCountAdjustments({ open: 0, closed: 0 });
+	}, [openIssues, closedIssues]);
+
+	useMutationSubscription(
+		["issue:closed", "issue:reopened", "issue:created"],
+		(event: MutationEvent) => {
+			if (!isRepoEvent(event, owner, repo)) return;
+			setCountAdjustments((prev) => {
+				switch (event.type) {
+					case "issue:closed":
+						return { ...prev, open: prev.open - 1, closed: prev.closed + 1 };
+					case "issue:reopened":
+						return { ...prev, open: prev.open + 1, closed: prev.closed - 1 };
+					case "issue:created":
+						return { ...prev, open: prev.open + 1 };
+					default:
+						return prev;
+				}
+			});
+		},
+	);
 
 	const allIssues = useMemo(
 		() => [...openIssues, ...closedIssues],
@@ -916,13 +943,13 @@ export function IssuesList({
 							key: "open" as TabState,
 							label: "Open",
 							icon: <CircleDot className="w-3 h-3" />,
-							count: currentOpenIssues.length,
+							count: currentOpenIssues.length + countAdjustments.open,
 						},
 						{
 							key: "closed" as TabState,
 							label: "Closed",
 							icon: <CheckCircle2 className="w-3 h-3" />,
-							count: closedCompleted.length,
+							count: closedCompleted.length + countAdjustments.closed,
 						},
 						{
 							key: "not_planned" as TabState,

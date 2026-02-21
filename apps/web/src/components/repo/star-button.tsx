@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Star } from "lucide-react";
 import { starRepo, unstarRepo } from "@/app/(app)/repos/actions";
 import { cn, formatNumber } from "@/lib/utils";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface StarButtonProps {
 	owner: string;
@@ -16,11 +17,13 @@ export function StarButton({ owner, repo, starred, starCount }: StarButtonProps)
 	const [isStarred, setIsStarred] = useState(starred);
 	const [count, setCount] = useState(starCount);
 	const [isPending, startTransition] = useTransition();
+	const { emit } = useMutationEvents();
 
 	const toggle = () => {
 		const next = !isStarred;
 		setIsStarred(next);
 		setCount((c) => c + (next ? 1 : -1));
+		emit({ type: next ? "repo:starred" : "repo:unstarred", owner, repo });
 		startTransition(async () => {
 			const res = next
 				? await starRepo(owner, repo)

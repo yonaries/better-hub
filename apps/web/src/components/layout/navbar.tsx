@@ -11,6 +11,7 @@ const CommandMenu = dynamic(
 	{ ssr: false },
 );
 import { signOut } from "@/lib/auth-client";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 import {
 	DropdownMenu,
 	DropdownMenuTrigger,
@@ -49,6 +50,7 @@ interface AppNavbarProps {
 
 export function AppNavbar({ userImage, userName }: AppNavbarProps) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [accountsData, setAccountsData] = useState<AccountsData | null>(null);
 	const [patDialogOpen, setPatDialogOpen] = useState(false);
 	const [patInput, setPatInput] = useState("");
@@ -87,12 +89,13 @@ export function AppNavbar({ userImage, userName }: AppNavbarProps) {
 				});
 				await fetchAccounts();
 				window.dispatchEvent(new Event("github-account-switched"));
+				emit({ type: "github-account:switched" });
 				router.refresh();
 			} catch {
 				// silent
 			}
 		},
-		[fetchAccounts, router],
+		[fetchAccounts, router, emit],
 	);
 
 	const handleRemoveAccount = useCallback(
@@ -105,11 +108,12 @@ export function AppNavbar({ userImage, userName }: AppNavbarProps) {
 				});
 				await fetchAccounts();
 				window.dispatchEvent(new Event("github-account-switched"));
+				emit({ type: "github-account:removed" });
 			} catch {
 				// silent
 			}
 		},
-		[fetchAccounts],
+		[fetchAccounts, emit],
 	);
 
 	const handleAddPat = useCallback(async () => {
@@ -131,12 +135,13 @@ export function AppNavbar({ userImage, userName }: AppNavbarProps) {
 			setPatDialogOpen(false);
 			await fetchAccounts();
 			window.dispatchEvent(new Event("github-account-switched"));
+			emit({ type: "github-account:added" });
 		} catch {
 			setPatError("Network error");
 		} finally {
 			setPatSubmitting(false);
 		}
-	}, [patInput, patSubmitting, fetchAccounts]);
+	}, [patInput, patSubmitting, fetchAccounts, emit]);
 
 	return (
 		<header className="fixed top-0 h-10 flex w-full flex-col bg-background backdrop-blur-lg z-10">

@@ -35,21 +35,27 @@ export async function createRepo(
 	autoInit: boolean,
 	gitignoreTemplate: string,
 	licenseTemplate: string,
+	org?: string,
 ): Promise<{ success: boolean; full_name?: string; error?: string }> {
 	const octokit = await getOctokit();
 	if (!octokit) return { success: false, error: "Not authenticated" };
 
 	try {
-		const { data } = await octokit.repos.createForAuthenticatedUser({
+		const common = {
 			name,
 			description: description || undefined,
 			private: isPrivate,
 			auto_init: autoInit || undefined,
 			gitignore_template: gitignoreTemplate || undefined,
 			license_template: licenseTemplate || undefined,
-		});
+		};
+
+		const { data } = org
+			? await octokit.repos.createInOrg({ ...common, org })
+			: await octokit.repos.createForAuthenticatedUser(common);
 
 		revalidatePath("/dashboard");
+		if (org) revalidatePath(`/${org}`);
 		return { success: true, full_name: data.full_name };
 	} catch (e: unknown) {
 		return {

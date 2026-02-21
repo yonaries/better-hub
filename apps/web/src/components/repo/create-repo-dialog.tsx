@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { createRepo } from "@/app/(app)/repos/actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 const GITIGNORE_OPTIONS = [
 	"",
@@ -47,8 +48,9 @@ const LICENSE_OPTIONS = [
 	{ value: "unlicense", label: "The Unlicense" },
 ];
 
-export function CreateRepoDialog() {
+export function CreateRepoDialog({ org }: { org?: string } = {}) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 
 	const [open, setOpen] = useState(false);
 	const [name, setName] = useState("");
@@ -82,9 +84,12 @@ export function CreateRepoDialog() {
 				autoInit,
 				gitignoreTemplate,
 				licenseTemplate,
+				org,
 			);
 
 			if (result.success && result.full_name) {
+				const [repoOwner, repoName] = result.full_name.split("/");
+				emit({ type: "repo:created", owner: repoOwner, repo: repoName });
 				setOpen(false);
 				reset();
 				router.push(`/${result.full_name}`);
@@ -113,7 +118,7 @@ export function CreateRepoDialog() {
 			<DialogContent className="sm:max-w-lg">
 				<DialogHeader>
 					<DialogTitle className="text-sm font-mono">
-						Create a new repository
+						Create a new repository{org ? ` in ${org}` : ""}
 					</DialogTitle>
 					<DialogDescription className="text-xs text-muted-foreground">
 						A repository contains all project files, including

@@ -493,38 +493,37 @@ function Stat({
 	return (
 		<div
 			className={cn(
-				"relative flex flex-col gap-1.5 px-3 py-3 border border-dashed transition-colors",
-				accent
-					? "border-foreground/20 dark:border-foreground/10"
-					: "border-border/70",
+				"stat-card relative overflow-hidden rounded-lg px-3 py-3",
+				"border border-foreground/[0.06]",
+				"bg-gradient-to-br from-foreground/[0.04] via-foreground/[0.02] to-transparent",
 			)}
 		>
-			<div className="flex items-center gap-1.5">
-				<span
-					className={cn(
-						accent
-							? "text-foreground/50"
-							: "text-muted-foreground/50",
+			{/* Noise texture */}
+			<div className="pointer-events-none absolute inset-0 stat-noise opacity-[0.4] dark:opacity-[0.5] mix-blend-overlay" />
+			{/* Diagonal shine */}
+			<div className="pointer-events-none absolute -inset-1/2 w-[200%] h-[200%] rotate-12 bg-gradient-to-br from-transparent via-foreground/[0.03] to-transparent translate-x-[-30%] translate-y-[-10%]" />
+			<div className="relative flex flex-col gap-1.5">
+				<div className="flex items-center gap-1.5">
+					<span className={cn(accent ? "text-foreground/60" : "text-muted-foreground/40")}>
+						{icon}
+					</span>
+					<span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+						{label}
+					</span>
+				</div>
+				<div className="flex items-baseline gap-1.5">
+					<span
+						className={cn(
+							"text-lg font-medium tabular-nums tracking-tight",
+							accent ? "text-foreground" : "text-foreground/60",
+						)}
+					>
+						{value}
+					</span>
+					{accent && value > 0 && (
+						<span className="w-1.5 h-1.5 rounded-full bg-foreground/40" />
 					)}
-				>
-					{icon}
-				</span>
-				<span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
-					{label}
-				</span>
-			</div>
-			<div className="flex items-baseline gap-1.5">
-				<span
-					className={cn(
-						"text-lg font-medium tabular-nums tracking-tight",
-						accent ? "text-foreground" : "text-foreground/60",
-					)}
-				>
-					{value}
-				</span>
-				{accent && value > 0 && (
-					<span className="w-1 h-1 rounded-full bg-success/80" />
-				)}
+				</div>
 			</div>
 		</div>
 	);
@@ -979,7 +978,9 @@ function ActivityMarquee({ activity }: { activity: Array<ActivityEvent> }) {
 	));
 
 	return (
-		<div className="shrink-0 overflow-hidden border border-border">
+		<div className="shrink-0 relative overflow-hidden border-y border-border">
+			<div className="pointer-events-none absolute inset-y-0 left-0 w-16 z-10 bg-gradient-to-r from-background to-transparent" />
+			<div className="pointer-events-none absolute inset-y-0 right-0 w-16 z-10 bg-gradient-to-l from-background to-transparent" />
 			<div className="flex whitespace-nowrap marquee-track text-[11px] font-mono text-muted-foreground py-2 px-3">
 				{content}
 				{content}

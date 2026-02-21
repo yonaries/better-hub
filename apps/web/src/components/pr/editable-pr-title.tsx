@@ -5,6 +5,7 @@ import { Pencil, Check, X, Loader2 } from "lucide-react";
 import { renamePullRequest } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface EditablePRTitleProps {
 	title: string;
@@ -20,6 +21,7 @@ export function EditablePRTitle({ title, number, owner, repo, canEdit }: Editabl
 	const [isPending, startTransition] = useTransition();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 
 	useEffect(() => {
 		if (editing) {
@@ -52,6 +54,8 @@ export function EditablePRTitle({ title, number, owner, repo, canEdit }: Editabl
 				// Revert on failure
 				setOptimisticTitle(title);
 				setValue(title);
+			} else {
+				emit({ type: "pr:renamed", owner, repo, number });
 			}
 			router.refresh();
 		});

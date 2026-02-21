@@ -59,6 +59,7 @@ import { MarkdownEditor, type MarkdownEditorRef } from "@/components/shared/mark
 import type { ReviewThread, CheckStatus } from "@/lib/github";
 import { ClientMarkdown } from "@/components/shared/client-markdown";
 import { CheckStatusBadge } from "@/components/pr/check-status-badge";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface DiffFile {
 	filename: string;
@@ -613,6 +614,7 @@ function SingleFileDiff({
 	onAddContext?: AddContextCallback;
 	participants?: Array<{ login: string; avatar_url: string }>;
 }) {
+	const { emit } = useMutationEvents();
 	const lines = file.patch ? parseDiffPatch(file.patch) : [];
 	const diffContainerRef = useRef<HTMLDivElement>(null);
 
@@ -944,6 +946,7 @@ function SingleFileDiff({
 			setEditSha(null);
 			setEditTokens(null);
 			setEditView("edit");
+			emit({ type: "pr:file-committed", owner: owner!, repo: repo!, number: pullNumber! });
 			diffRouter.refresh();
 		},
 		[
@@ -955,6 +958,7 @@ function SingleFileDiff({
 			editContent,
 			file.filename,
 			diffRouter,
+			emit,
 		],
 	);
 
@@ -2988,6 +2992,7 @@ function InlineCommentForm({
 	participants?: Array<{ login: string; avatar_url: string }>;
 }) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [body, setBody] = useState("");
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
@@ -3025,6 +3030,7 @@ function InlineCommentForm({
 				setError(res.error);
 			} else {
 				onClose();
+				emit({ type: "pr:commented", owner, repo, number: pullNumber });
 				router.refresh();
 			}
 		});
@@ -3174,6 +3180,7 @@ function InlineCommentDisplay({
 	canWrite?: boolean;
 }) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [isPending, startTransition] = useTransition();
 	const [result, setResult] = useState<{ type: "success" | "error"; msg: string } | null>(
 		null,
@@ -3226,6 +3233,7 @@ function InlineCommentDisplay({
 				} catch {}
 				// Give GitHub time to process the new commit before refreshing
 				await new Promise((r) => setTimeout(r, 1500));
+				emit({ type: "pr:suggestion-committed", owner: owner!, repo: repo!, number: pullNumber! });
 				router.refresh();
 			}
 		});
@@ -4759,6 +4767,7 @@ function SidebarReviews({
 	pullNumber?: number;
 }) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [expandedFiles, setExpandedFiles] = useState<Set<string>>(
 		() => new Set(threadsByFile.keys()),
 	);
@@ -4781,6 +4790,7 @@ function SidebarReviews({
 			} else {
 				await unresolveReviewThread(threadId, owner, repo, pullNumber);
 			}
+			emit({ type: resolve ? "pr:thread-resolved" : "pr:thread-unresolved", owner, repo, number: pullNumber });
 			router.refresh();
 		});
 	};

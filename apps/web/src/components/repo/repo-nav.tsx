@@ -4,6 +4,8 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
+import { isRepoEvent, type MutationEvent } from "@/lib/mutation-events";
 
 interface RepoNavProps {
 	owner: string;
@@ -29,6 +31,38 @@ export function RepoNav({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [indicator, setIndicator] = useState({ left: 0, width: 0 });
 	const [hasAnimated, setHasAnimated] = useState(false);
+	const [countAdjustments, setCountAdjustments] = useState({ prs: 0, issues: 0, prompts: 0 });
+
+	useEffect(() => {
+		setCountAdjustments({ prs: 0, issues: 0, prompts: 0 });
+	}, [openPrsCount, openIssuesCount, promptRequestsCount]);
+
+	useMutationSubscription(
+		["pr:merged", "pr:closed", "pr:reopened", "issue:closed", "issue:reopened", "issue:created", "prompt:created", "prompt:rejected"],
+		(event: MutationEvent) => {
+			if (!isRepoEvent(event, owner, repo)) return;
+			setCountAdjustments((prev) => {
+				switch (event.type) {
+					case "pr:merged":
+					case "pr:closed":
+						return { ...prev, prs: prev.prs - 1 };
+					case "pr:reopened":
+						return { ...prev, prs: prev.prs + 1 };
+					case "issue:closed":
+						return { ...prev, issues: prev.issues - 1 };
+					case "issue:reopened":
+					case "issue:created":
+						return { ...prev, issues: prev.issues + 1 };
+					case "prompt:created":
+						return { ...prev, prompts: prev.prompts + 1 };
+					case "prompt:rejected":
+						return { ...prev, prompts: prev.prompts - 1 };
+					default:
+						return prev;
+				}
+			});
+		},
+	);
 
 	const tabs = [
 		{
@@ -57,19 +91,19 @@ export function RepoNav({
 			active:
 				pathname.startsWith(`${base}/pulls`) ||
 				pathname.startsWith(`${base}/pull/`),
-			count: openPrsCount,
+			count: (openPrsCount ?? 0) + countAdjustments.prs,
 		},
 		{
 			label: "Issues",
 			href: `${base}/issues`,
 			active: pathname.startsWith(`${base}/issues`),
-			count: openIssuesCount,
+			count: (openIssuesCount ?? 0) + countAdjustments.issues,
 		},
 		{
 			label: "Prompts",
 			href: `${base}/prompts`,
 			active: pathname.startsWith(`${base}/prompts`),
-			count: promptRequestsCount,
+			count: (promptRequestsCount ?? 0) + countAdjustments.prompts,
 		},
 		...(showPeopleTab
 			? [

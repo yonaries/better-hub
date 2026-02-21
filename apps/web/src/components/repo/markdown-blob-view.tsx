@@ -8,6 +8,7 @@ import { formatBytes } from "@/lib/github-utils";
 import { useGlobalChat, type InlineContext } from "@/components/shared/global-chat-provider";
 import { CommitDialog } from "@/components/shared/commit-dialog";
 import { commitFileEdit } from "@/app/(app)/repos/[owner]/[repo]/blob/blob-actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 export function MarkdownBlobView({
 	rawView,
@@ -41,6 +42,7 @@ export function MarkdownBlobView({
 	const [mode, setMode] = useState<"preview" | "raw" | "edit">("preview");
 	const mdRouter = useRouter();
 	const { addCodeContext } = useGlobalChat();
+	const { emit } = useMutationEvents();
 	const [editContent, setEditContent] = useState(content);
 	const [commitDialogOpen, setCommitDialogOpen] = useState(false);
 	const [currentSha, setCurrentSha] = useState(initialSha);
@@ -89,6 +91,7 @@ export function MarkdownBlobView({
 			if (result.error) throw new Error(result.error);
 			if (result.newSha) setCurrentSha(result.newSha);
 			setMode("preview");
+			if (owner && repo) emit({ type: "repo:file-committed", owner, repo });
 			mdRouter.refresh();
 		},
 		[owner, repo, branch, currentSha, filePath, editContent, mdRouter],

@@ -147,13 +147,13 @@ export function PeopleList({ owner, repo, people, onInvite }: PeopleListProps) {
 			</p>
 
 			{filtered.length === 0 ? (
-				<div className="flex items-center justify-center py-12 border border-border rounded-md">
+				<div className="flex items-center justify-center py-12 border border-border/50 rounded-md">
 					<p className="text-xs text-muted-foreground/60 font-mono">
 						No members found
 					</p>
 				</div>
 			) : (
-				<div className="border border-border rounded-md overflow-hidden divide-y divide-border">
+				<div className="border border-border/50 rounded-md overflow-hidden divide-y divide-border/40">
 					{filtered.map((person) => (
 						<Link
 							key={person.login}

@@ -113,7 +113,7 @@ export function RepoLayoutWrapper({ sidebar, children, owner, repo }: RepoLayout
       >
         <div className={`hidden lg:flex items-center gap-1 text-xs px-2 pt-3 pb-1 ${collapsed ? "visible" : "invisible"}`}>
           <Link
-            href={`/orgs/${owner}`}
+            href={`/${owner}`}
             className="text-muted-foreground/60 hover:text-foreground transition-colors tracking-tight"
           >
             {owner}

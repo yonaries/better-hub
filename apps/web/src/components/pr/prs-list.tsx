@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback, useTransition } from "react";
+import { useState, useMemo, useRef, useCallback, useTransition, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -28,6 +28,8 @@ import {
 	LoadingOverlay,
 } from "@/components/shared/list-controls";
 import { LabelBadge } from "@/components/shared/label-badge";
+import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
+import { isRepoEvent, type MutationEvent } from "@/lib/mutation-events";
 
 interface PRUser {
 	login: string;
@@ -111,6 +113,30 @@ export function PRsList({
 	const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
 	const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("all");
 	const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
+	const [countAdjustments, setCountAdjustments] = useState({ open: 0, merged: 0, closed: 0 });
+
+	useEffect(() => {
+		setCountAdjustments({ open: 0, merged: 0, closed: 0 });
+	}, [openPRs, closedPRs]);
+
+	useMutationSubscription(
+		["pr:merged", "pr:closed", "pr:reopened"],
+		(event: MutationEvent) => {
+			if (!isRepoEvent(event, owner, repo)) return;
+			setCountAdjustments((prev) => {
+				switch (event.type) {
+					case "pr:merged":
+						return { ...prev, open: prev.open - 1, merged: prev.merged + 1 };
+					case "pr:closed":
+						return { ...prev, open: prev.open - 1, closed: prev.closed + 1 };
+					case "pr:reopened":
+						return { ...prev, open: prev.open + 1, closed: prev.closed - 1 };
+					default:
+						return prev;
+				}
+			});
+		},
+	);
 
 	const allPRs = useMemo(() => [...openPRs, ...closedPRs], [openPRs, closedPRs]);
 
@@ -698,13 +724,13 @@ export function PRsList({
 							icon: (
 								<GitPullRequest className="w-3 h-3" />
 							),
-							count: currentOpenPRs.length,
+							count: currentOpenPRs.length + countAdjustments.open,
 						},
 						{
 							key: "merged" as TabState,
 							label: "Merged",
 							icon: <GitMerge className="w-3 h-3" />,
-							count: mergedPRs.length,
+							count: mergedPRs.length + countAdjustments.merged,
 						},
 						{
 							key: "closed" as TabState,
@@ -712,7 +738,7 @@ export function PRsList({
 							icon: (
 								<GitPullRequestClosed className="w-3 h-3" />
 							),
-							count: closedUnmergedPRs.length,
+							count: closedUnmergedPRs.length + countAdjustments.closed,
 						},
 					].map((tab) => (
 						<button

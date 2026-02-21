@@ -6,8 +6,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn, formatNumber } from "@/lib/utils";
 import type { CommitActivityWeek, CheckStatus, CheckRun } from "@/lib/github";
-import { GitPullRequest, CircleDot, Star, GitFork, Eye, MessageSquare, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { GitPullRequest, CircleDot, Star, GitFork, Eye, MessageSquare, CheckCircle2, XCircle, Clock, Pin, GitCommit, Link2, X } from "lucide-react";
 import { CheckStatusBadge } from "@/components/pr/check-status-badge";
+import { unpinFromOverview } from "@/app/(app)/repos/[owner]/[repo]/pin-actions";
+import type { PinnedItem } from "@/lib/pinned-items-store";
+import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
+import { isRepoEvent, type MutationEvent } from "@/lib/mutation-events";
 
 // --- Language colors (shared with InsightsView) ---
 const LANG_COLORS: Record<string, string> = {
@@ -399,7 +404,7 @@ function ActivityItem({ event }: { event: RepoEvent }) {
 								@
 							</span>
 							<Link
-								href={`/orgs/${event.org.login}`}
+								href={`/${event.org.login}`}
 								className="text-muted-foreground/50 hover:underline"
 								onClick={(e) => e.stopPropagation()}
 							>
@@ -785,6 +790,100 @@ function TickerCard({ item }: { item: HotItem }) {
 	);
 }
 
+const PINNED_TYPE_ICONS: Record<string, typeof GitPullRequest> = {
+	pr: GitPullRequest,
+	issue: CircleDot,
+	commit: GitCommit,
+	page: Link2,
+	link: Link2,
+};
+
+function PinnedItemsSection({
+	items,
+	owner,
+	repo,
+}: {
+	items: PinnedItem[];
+	owner: string;
+	repo: string;
+}) {
+	const [localItems, setLocalItems] = useState(items);
+	const { emit } = useMutationEvents();
+
+	useMutationSubscription(
+		["pin:added", "pin:removed"],
+		(event: MutationEvent) => {
+			if (!isRepoEvent(event, owner, repo)) return;
+			if (event.type === "pin:added") {
+				setLocalItems((prev) => {
+					if (prev.some((i) => i.url === event.url)) return prev;
+					return [
+						{
+							id: crypto.randomUUID(),
+							userId: "",
+							owner,
+							repo,
+							url: event.url,
+							title: event.title,
+							itemType: event.itemType,
+							pinnedAt: new Date().toISOString(),
+						},
+						...prev,
+					];
+				});
+			} else if (event.type === "pin:removed") {
+				setLocalItems((prev) => prev.filter((i) => i.url !== event.url));
+			}
+		},
+	);
+
+	async function handleUnpin(url: string) {
+		setLocalItems((prev) => prev.filter((i) => i.url !== url));
+		await unpinFromOverview(owner, repo, url);
+		emit({ type: "pin:removed", owner, repo, url });
+	}
+
+	if (localItems.length === 0) return null;
+
+	return (
+		<div className="border border-dashed border-border/60 rounded-lg overflow-hidden">
+			<div className="flex items-center gap-2 px-4 pt-3 pb-1">
+				<Pin className="w-3 h-3 text-muted-foreground/60" />
+				<h3 className="text-sm font-medium text-foreground">Pinned</h3>
+				<span className="text-[10px] font-mono text-muted-foreground/50 bg-muted/60 px-1.5 py-0.5 rounded">
+					{localItems.length}
+				</span>
+			</div>
+			<div className="px-2 pb-2 max-h-[280px] overflow-y-auto">
+				{localItems.map((item) => {
+					const Icon = PINNED_TYPE_ICONS[item.itemType] ?? Link2;
+					return (
+						<div
+							key={item.id}
+							className="flex items-center gap-2.5 px-2 py-1.5 group hover:bg-muted/40 rounded-md transition-colors"
+						>
+							<Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+							<Link
+								href={item.url}
+								className="text-xs text-foreground/80 truncate flex-1 hover:text-foreground transition-colors"
+							>
+								{item.title}
+							</Link>
+							<button
+								onClick={() => handleUnpin(item.url)}
+								className="p-0.5 text-muted-foreground/30 hover:text-foreground opacity-0 group-hover:opacity-100 transition-all cursor-pointer shrink-0"
+								title="Unpin"
+							>
+								<X className="w-3 h-3" />
+							</button>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
 function CIStatusCard({
 	ciStatus,
 	owner,
@@ -807,7 +906,7 @@ function CIStatusCard({
 	return (
 		<div
 			className={cn(
-				"border border-dashed border-border/60 rounded-lg p-4",
+				"rounded-lg p-4 bg-muted/40",
 				hasFails && "border-l-2 border-l-destructive/50",
 			)}
 		>
@@ -927,6 +1026,7 @@ export interface RepoOverviewProps {
 	myRepoEvents?: RepoEvent[];
 	ciStatus?: CheckStatus | null;
 	defaultBranch?: string;
+	pinnedItems?: PinnedItem[];
 	// Non-maintainer-only
 	readmeSlot?: React.ReactNode;
 	contributors?: ContributorItem[];
@@ -947,6 +1047,7 @@ export function RepoOverview({
 	myRepoEvents,
 	ciStatus,
 	defaultBranch,
+	pinnedItems,
 	readmeSlot,
 	contributors,
 	languages,
@@ -1038,6 +1139,13 @@ export function RepoOverview({
 							owner={owner}
 							repo={repo}
 							defaultBranch={defaultBranch ?? "main"}
+						/>
+					)}
+					{pinnedItems && pinnedItems.length > 0 && (
+						<PinnedItemsSection
+							items={pinnedItems}
+							owner={owner}
+							repo={repo}
 						/>
 					)}
 					{hotItems.length > 0 && (

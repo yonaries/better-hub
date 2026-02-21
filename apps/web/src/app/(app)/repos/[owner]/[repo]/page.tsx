@@ -17,6 +17,9 @@ import {
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import { TrackView } from "@/components/shared/track-view";
 import { RepoOverview } from "@/components/repo/repo-overview";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { getPinnedItems } from "@/lib/pinned-items-store";
 
 export default async function RepoPage({
 	params,
@@ -44,16 +47,18 @@ export default async function RepoPage({
 	);
 
 	if (isMaintainer) {
-		// Maintainer: fetch commit activity + repo events + user events + CI status
+		// Maintainer: fetch commit activity + repo events + user events + CI status + pinned items
 		const currentUser = await getAuthenticatedUser();
 		const octokit = await getOctokit();
-		const [commitActivity, repoEvents, userEvents, ciStatus] = await Promise.all([
+		const session = await auth.api.getSession({ headers: await headers() });
+		const [commitActivity, repoEvents, userEvents, ciStatus, pinnedItems] = await Promise.all([
 			getCommitActivity(owner, repo),
 			getRepoEvents(owner, repo, 30),
 			currentUser ? getUserEvents(currentUser.login, 100) : Promise.resolve([]),
 			octokit
 				? fetchCheckStatusForRef(octokit, owner, repo, repoData.default_branch)
 				: Promise.resolve(null),
+			session?.user?.id ? getPinnedItems(session.user.id, owner, repo) : Promise.resolve([]),
 		]);
 
 		// Filter user events to this repo
@@ -136,6 +141,7 @@ export default async function RepoPage({
 					myRepoEvents={myRepoEvents}
 					ciStatus={ciStatus}
 					defaultBranch={repoData.default_branch}
+					pinnedItems={pinnedItems}
 				/>
 			</div>
 		);

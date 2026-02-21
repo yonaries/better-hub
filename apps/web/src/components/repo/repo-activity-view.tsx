@@ -353,7 +353,7 @@ export function RepoActivityView({ owner, repo, events, commitActivity }: RepoAc
 													@
 												</span>
 												<Link
-													href={`/orgs/${event.org.login}`}
+													href={`/${event.org.login}`}
 													className="text-muted-foreground/50 hover:underline"
 													onClick={(
 														e,

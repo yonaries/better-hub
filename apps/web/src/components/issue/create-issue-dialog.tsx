@@ -37,6 +37,7 @@ import {
 	getIssueTemplates,
 	getRepoLabels,
 } from "@/app/(app)/repos/[owner]/[repo]/issues/actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface RepoLabel {
 	name: string;
@@ -66,6 +67,7 @@ export function CreateIssueDialog({ owner, repo }: { owner: string; repo: string
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const [bodyTab, setBodyTab] = useState<"write" | "preview">("write");
+	const { emit } = useMutationEvents();
 
 	// Track whether user has touched the form (to avoid yanking them to templates)
 	const userTouchedForm = useRef(false);
@@ -164,6 +166,7 @@ export function CreateIssueDialog({ owner, repo }: { owner: string; repo: string
 				[],
 			);
 			if (result.success && result.number) {
+				emit({ type: "issue:created", owner, repo, number: result.number });
 				setOpen(false);
 				router.push(`/${owner}/${repo}/issues/${result.number}`);
 			} else {

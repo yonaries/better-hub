@@ -19,6 +19,7 @@ import { cn, getErrorMessage } from "@/lib/utils";
 import { ClientMarkdown } from "@/components/shared/client-markdown";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { useGlobalChat } from "@/components/shared/global-chat-provider";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 import {
 	acceptPromptRequest,
 	rejectPromptRequest,
@@ -67,6 +68,7 @@ export function PromptDetail({ owner, repo, promptRequest }: PromptDetailProps) 
 		state: chatState,
 		setWorkingSource,
 	} = useGlobalChat();
+	const { emit } = useMutationEvents();
 	const [isAccepting, setIsAccepting] = useState(false);
 	const [isRejecting, setIsRejecting] = useState(false);
 	const [isResetting, setIsResetting] = useState(false);
@@ -173,6 +175,7 @@ export function PromptDetail({ owner, repo, promptRequest }: PromptDetailProps) 
 		setIsAccepting(true);
 		try {
 			await acceptPromptRequest(promptRequest.id);
+			emit({ type: "prompt:accepted", owner, repo });
 			router.refresh();
 			openGhostWithPrompt();
 		} catch (e: unknown) {
@@ -185,6 +188,7 @@ export function PromptDetail({ owner, repo, promptRequest }: PromptDetailProps) 
 		setIsResetting(true);
 		try {
 			await resetPromptRequest(promptRequest.id);
+			emit({ type: "prompt:reset", owner, repo });
 			setError(null);
 			router.refresh();
 		} catch {
@@ -196,6 +200,7 @@ export function PromptDetail({ owner, repo, promptRequest }: PromptDetailProps) 
 		setIsRejecting(true);
 		try {
 			await rejectPromptRequest(promptRequest.id);
+			emit({ type: "prompt:rejected", owner, repo });
 			router.refresh();
 		} catch {
 			setIsRejecting(false);
@@ -207,6 +212,7 @@ export function PromptDetail({ owner, repo, promptRequest }: PromptDetailProps) 
 		setIsDeleting(true);
 		try {
 			await deletePromptRequestAction(promptRequest.id);
+			emit({ type: "prompt:deleted", owner, repo });
 			router.push(`/${owner}/${repo}/prompts`);
 		} catch {
 			setIsDeleting(false);

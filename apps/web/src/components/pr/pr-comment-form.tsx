@@ -9,6 +9,7 @@ import { TimeAgo } from "@/components/ui/time-ago";
 import { addPRComment } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
 import { MarkdownEditor } from "@/components/shared/markdown-editor";
 import { ClientMarkdown } from "@/components/shared/client-markdown";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface OptimisticComment {
 	id: number;
@@ -34,6 +35,7 @@ export function PRCommentForm({
 	participants,
 }: PRCommentFormProps) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [body, setBody] = useState("");
 	const [isPending, startTransition] = useTransition();
 	const [error, setError] = useState<string | null>(null);
@@ -77,6 +79,7 @@ export function PRCommentForm({
 				);
 				setBody(commentBody);
 			} else {
+				emit({ type: "pr:commented", owner, repo, number: pullNumber });
 				router.refresh();
 			}
 		});

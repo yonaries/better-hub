@@ -29,6 +29,7 @@ import {
 	reopenPullRequest,
 	type MergeMethod,
 } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface PRMergePanelProps {
 	owner: string;
@@ -90,6 +91,7 @@ export function PRMergePanel({
 
 	const router = useRouter();
 	const { openChat } = useGlobalChat();
+	const { emit } = useMutationEvents();
 	const [method, setMethod] = useState<MergeMethod>(availableMethods[0] ?? "merge");
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const [squashDialogOpen, setSquashDialogOpen] = useState(false);
@@ -186,6 +188,7 @@ export function PRMergePanel({
 				setResult({ type: "error", message: res.error });
 			} else {
 				setResult({ type: "success", message: "Merged" });
+				emit({ type: "pr:merged", owner, repo, number: pullNumber });
 				setSquashDialogOpen(false);
 				setIsMerged(true);
 				router.refresh();
@@ -215,6 +218,7 @@ export function PRMergePanel({
 				setResult({ type: "error", message: res.error });
 			} else {
 				setResult({ type: "success", message: "Closed" });
+				emit({ type: "pr:closed", owner, repo, number: pullNumber });
 				router.refresh();
 			}
 		});
@@ -228,6 +232,7 @@ export function PRMergePanel({
 				setResult({ type: "error", message: res.error });
 			} else {
 				setResult({ type: "success", message: "Reopened" });
+				emit({ type: "pr:reopened", owner, repo, number: pullNumber });
 				router.refresh();
 			}
 		});

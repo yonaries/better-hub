@@ -10,6 +10,7 @@ import {
 	type ReviewEvent,
 } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
 import { MarkdownEditor } from "@/components/shared/markdown-editor";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface PRReviewFormProps {
 	owner: string;
@@ -50,6 +51,7 @@ const reviewOptions: {
 
 export function PRReviewForm({ owner, repo, pullNumber, participants }: PRReviewFormProps) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [open, setOpen] = useState(false);
 	const [body, setBody] = useState("");
 	const [selected, setSelected] = useState<ReviewEvent>("COMMENT");
@@ -79,6 +81,7 @@ export function PRReviewForm({ owner, repo, pullNumber, participants }: PRReview
 				setBody("");
 				setSelected("COMMENT");
 				setOpen(false);
+				emit({ type: "pr:reviewed", owner, repo, number: pullNumber });
 				router.refresh();
 			}
 		});

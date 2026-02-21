@@ -61,7 +61,7 @@ export function OrgsContent({ orgs }: { orgs: OrgListItem[] }) {
 						className="group flex items-center gap-4 px-4 py-3 hover:bg-muted/60 dark:hover:bg-white/3 transition-colors"
 					>
 						<Link
-							href={`/orgs/${org.login}`}
+							href={`/${org.login}`}
 							className="flex items-center gap-4 flex-1 min-w-0"
 						>
 							<Image
@@ -105,7 +105,7 @@ export function OrgsContent({ orgs }: { orgs: OrgListItem[] }) {
 								GitHub
 								<ExternalLink className="w-3 h-3" />
 							</a>
-							<Link href={`/orgs/${org.login}`}>
+							<Link href={`/${org.login}`}>
 								<ChevronRight className="w-3 h-3 text-foreground/15 opacity-0 group-hover:opacity-100 transition-opacity" />
 							</Link>
 						</div>

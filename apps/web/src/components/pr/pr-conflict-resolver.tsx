@@ -16,6 +16,7 @@ import {
 import { cn, getErrorMessage } from "@/lib/utils";
 import type { MergeHunk, ConflictFileData } from "@/lib/three-way-merge";
 import { commitMergeConflictResolution } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -63,6 +64,7 @@ export function PRConflictResolver({
 	headBranch,
 }: PRConflictResolverProps) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [data, setData] = useState<MergeConflictsResponse | null>(null);
@@ -363,6 +365,7 @@ export function PRConflictResolver({
 					type: "success",
 					message: "Conflicts resolved!",
 				});
+				emit({ type: "pr:conflict-resolved", owner, repo, number: pullNumber });
 				// Hard navigate to fully bust Next.js router cache + give GitHub a moment to recompute mergeable
 				setTimeout(() => {
 					window.location.href = `/${owner}/${repo}/pulls/${pullNumber}`;

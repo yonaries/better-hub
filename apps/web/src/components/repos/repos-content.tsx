@@ -568,7 +568,7 @@ export function ReposContent({ repos }: { repos: Repo[] }) {
 									href={
 										ownerType ===
 										"Organization"
-											? `/orgs/${owner}`
+											? `/${owner}`
 											: `/users/${owner}`
 									}
 									className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/20 dark:bg-white/[0.015] hover:bg-muted/40 dark:hover:bg-white/[0.03] transition-colors"

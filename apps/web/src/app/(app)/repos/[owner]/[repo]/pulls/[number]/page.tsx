@@ -37,6 +37,7 @@ import { TrackView } from "@/components/shared/track-view";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { inngest } from "@/lib/inngest";
+import { isItemPinned } from "@/lib/pinned-items-store";
 
 type GitHubOrg = { login: string; avatar_url: string };
 type GitHubPublicRepo = {
@@ -167,8 +168,11 @@ export default async function PRDetailPage({
 		}
 	}
 
-	// Fetch session unconditionally (used for embedding trigger)
+	// Fetch session unconditionally (used for embedding trigger + pin status)
 	const session = await auth.api.getSession({ headers: await headers() });
+	const prPinned = session?.user?.id
+		? await isItemPinned(session.user.id, owner, repo, `/${owner}/${repo}/pulls/${pullNumber}`)
+		: false;
 
 	// Fire-and-forget: embed PR content for semantic search
 	if (session?.user?.id) {
@@ -418,6 +422,7 @@ export default async function PRDetailPage({
 								pr.user?.login ===
 									currentUser?.login
 							}
+							isPinned={prPinned}
 							actions={
 								<div className="flex items-center gap-2">
 									{isOpen && (

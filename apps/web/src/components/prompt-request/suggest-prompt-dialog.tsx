@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { createPromptRequestAction } from "@/app/(app)/repos/[owner]/[repo]/prompts/actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface SuggestPromptDialogProps {
 	owner: string;
@@ -38,6 +39,7 @@ interface SuggestPromptDialogProps {
 
 export function SuggestPromptDialog({ owner, repo, open, onOpenChange }: SuggestPromptDialogProps) {
 	const router = useRouter();
+	const { emit } = useMutationEvents();
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -138,6 +140,7 @@ export function SuggestPromptDialog({ owner, repo, open, onOpenChange }: Suggest
 				);
 				reset();
 				onOpenChange(false);
+				emit({ type: "prompt:created", owner, repo });
 				router.push(`/${owner}/${repo}/prompts/${pr.id}`);
 			} catch {
 				setError("Failed to create prompt request");

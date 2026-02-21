@@ -6,6 +6,7 @@ import { MessageSquarePlus, CircleOff, CheckCircle2, CircleDot, ChevronDown } fr
 import { cn } from "@/lib/utils";
 import { useClickOutside } from "@/hooks/use-click-outside";
 import { closeIssue, reopenIssue } from "@/app/(app)/repos/[owner]/[repo]/issues/issue-actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 type CloseReason = "completed" | "not_planned";
 
@@ -27,6 +28,7 @@ export function IssueSidebarActions({
 	const [dropdownOpen, setDropdownOpen] = useState(false);
 	const [selectedReason, setSelectedReason] = useState<CloseReason>("completed");
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const { emit } = useMutationEvents();
 	const isOpen = issueState === "open";
 
 	useClickOutside(dropdownRef, () => setDropdownOpen(false));
@@ -46,6 +48,7 @@ export function IssueSidebarActions({
 		setDropdownOpen(false);
 		startTransition(async () => {
 			await closeIssue(owner, repo, issueNumber, reason);
+			emit({ type: "issue:closed", owner, repo, number: issueNumber });
 			router.refresh();
 		});
 	};
@@ -53,6 +56,7 @@ export function IssueSidebarActions({
 	const handleReopen = () => {
 		startTransition(async () => {
 			await reopenIssue(owner, repo, issueNumber);
+			emit({ type: "issue:reopened", owner, repo, number: issueNumber });
 			router.refresh();
 		});
 	};

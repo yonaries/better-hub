@@ -21,6 +21,7 @@ import {
 import { MarkdownEditor } from "@/components/shared/markdown-editor";
 import { ClientMarkdown } from "@/components/shared/client-markdown";
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface OptimisticComment {
 	id: number;
@@ -57,6 +58,7 @@ export function IssueCommentForm({
 	const [closeDropdownOpen, setCloseDropdownOpen] = useState(false);
 	const [selectedReason, setSelectedReason] = useState<CloseReason>("completed");
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const { emit } = useMutationEvents();
 
 	useClickOutside(dropdownRef, () => setCloseDropdownOpen(false));
 
@@ -101,6 +103,7 @@ export function IssueCommentForm({
 				);
 				setBody(commentBody);
 			} else {
+				emit({ type: "issue:commented", owner, repo, number: issueNumber });
 				router.refresh();
 			}
 		});
@@ -121,6 +124,7 @@ export function IssueCommentForm({
 				setError(res.error);
 			} else {
 				setBody("");
+				emit({ type: "issue:closed", owner, repo, number: issueNumber });
 				router.refresh();
 			}
 		});
@@ -139,6 +143,7 @@ export function IssueCommentForm({
 				setError(res.error);
 			} else {
 				setBody("");
+				emit({ type: "issue:reopened", owner, repo, number: issueNumber });
 				router.refresh();
 			}
 		});

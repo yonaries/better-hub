@@ -19,6 +19,7 @@ import type { SyntaxToken } from "@/lib/shiki";
 import { useGlobalChat, type InlineContext } from "@/components/shared/global-chat-provider";
 import { CommitDialog } from "@/components/shared/commit-dialog";
 import { commitFileEdit } from "@/app/(app)/repos/[owner]/[repo]/blob/blob-actions";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 interface CodeViewerClientProps {
 	html: string;
@@ -137,6 +138,7 @@ export function CodeViewerClient({
 	const [copiedAll, setCopiedAll] = useState(false);
 
 	const codeRouter = useRouter();
+	const { emit: emitMutation } = useMutationEvents();
 
 	const [wordWrap, setWordWrap] = useState(false);
 
@@ -666,6 +668,7 @@ export function CodeViewerClient({
 			if (result.error) throw new Error(result.error);
 			if (result.newSha) setCurrentSha(result.newSha);
 			setIsEditing(false);
+			if (owner && repo) emitMutation({ type: "repo:file-committed", owner, repo });
 			codeRouter.refresh();
 		},
 		[owner, repo, branch, currentSha, filePath, editContent, codeRouter],

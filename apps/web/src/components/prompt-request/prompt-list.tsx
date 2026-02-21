@@ -26,6 +26,9 @@ import { useGlobalChat } from "@/components/shared/global-chat-provider";
 import { rejectPromptRequest } from "@/app/(app)/repos/[owner]/[repo]/prompts/actions";
 import { SuggestPromptDialog } from "@/components/prompt-request/suggest-prompt-dialog";
 import type { PromptRequest, PromptRequestStatus } from "@/lib/prompt-request-store";
+import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
+import { isRepoEvent, type MutationEvent } from "@/lib/mutation-events";
 
 type StatusTab = "open" | "completed" | "rejected";
 type SortType = "newest" | "oldest" | "updated";
@@ -70,6 +73,9 @@ export function PromptList({ owner, repo, promptRequests }: PromptListProps) {
 	const [suggestDialogOpen, setSuggestDialogOpen] = useState(false);
 	const newMenuRef = useRef<HTMLDivElement>(null);
 
+	const [countAdjustments, setCountAdjustments] = useState({ open: 0, rejected: 0 });
+	const { emit } = useMutationEvents();
+
 	useEffect(() => {
 		if (!newMenuOpen) return;
 		const handle = (e: MouseEvent) => {
@@ -80,6 +86,27 @@ export function PromptList({ owner, repo, promptRequests }: PromptListProps) {
 		document.addEventListener("mousedown", handle);
 		return () => document.removeEventListener("mousedown", handle);
 	}, [newMenuOpen]);
+
+	useEffect(() => {
+		setCountAdjustments({ open: 0, rejected: 0 });
+	}, [promptRequests]);
+
+	useMutationSubscription(
+		["prompt:rejected", "prompt:created"],
+		(event: MutationEvent) => {
+			if (!isRepoEvent(event, owner, repo)) return;
+			setCountAdjustments((prev) => {
+				switch (event.type) {
+					case "prompt:rejected":
+						return { ...prev, open: prev.open - 1, rejected: prev.rejected + 1 };
+					case "prompt:created":
+						return { ...prev, open: prev.open + 1 };
+					default:
+						return prev;
+				}
+			});
+		},
+	);
 
 	const counts = useMemo(() => {
 		const c = { open: 0, completed: 0, rejected: 0 };
@@ -134,6 +161,7 @@ export function PromptList({ owner, repo, promptRequests }: PromptListProps) {
 		setClosingId(id);
 		try {
 			await rejectPromptRequest(id);
+			emit({ type: "prompt:rejected", owner, repo });
 			startTransition(() => router.refresh());
 		} finally {
 			setClosingId(null);
@@ -146,7 +174,7 @@ export function PromptList({ owner, repo, promptRequests }: PromptListProps) {
 				key: "open",
 				label: "Open",
 				icon: <CircleDot className="w-3 h-3" />,
-				count: counts.open,
+				count: counts.open + countAdjustments.open,
 			},
 			{
 				key: "completed",
@@ -158,7 +186,7 @@ export function PromptList({ owner, repo, promptRequests }: PromptListProps) {
 				key: "rejected",
 				label: "Closed",
 				icon: <XCircle className="w-3 h-3" />,
-				count: counts.rejected,
+				count: counts.rejected + countAdjustments.rejected,
 			},
 		];
 

@@ -6,6 +6,7 @@ import { CheckStatusBadge } from "@/components/pr/check-status-badge";
 import { cn } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { CopyLinkButton } from "@/components/shared/copy-link-button";
+import { PinButton } from "@/components/shared/pin-button";
 import { RefreshButton } from "@/components/shared/refresh-button";
 import { EditablePRTitle } from "@/components/pr/editable-pr-title";
 import { EditableBaseBranch } from "@/components/pr/editable-base-branch";
@@ -30,6 +31,7 @@ interface PRHeaderProps {
 	owner: string;
 	repo: string;
 	canEdit?: boolean;
+	isPinned?: boolean;
 }
 
 export function PRHeader({
@@ -52,6 +54,7 @@ export function PRHeader({
 	owner,
 	repo,
 	canEdit = false,
+	isPinned = false,
 }: PRHeaderProps) {
 	const statusConfig = merged
 		? {
@@ -184,6 +187,14 @@ export function PRHeader({
 					repo={repo}
 					number={number}
 					type="pulls"
+				/>
+				<PinButton
+					owner={owner}
+					repo={repo}
+					url={`/${owner}/${repo}/pulls/${number}`}
+					title={`${title} #${number}`}
+					itemType="pr"
+					isPinned={isPinned}
 				/>
 				<RefreshButton />
 

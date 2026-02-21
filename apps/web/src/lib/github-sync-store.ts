@@ -1,5 +1,6 @@
 import { Prisma } from "../generated/prisma/client";
 import { prisma } from "./db";
+import { redis } from "./redis";
 
 export type GithubSyncJobStatus = "pending" | "running" | "failed";
 
@@ -20,6 +21,11 @@ export interface GithubSyncJob<TPayload = unknown> {
 
 const MAX_ATTEMPTS = 8;
 const RUNNING_JOB_TIMEOUT_MS = 10 * 60 * 1000;
+const REDIS_CACHE_TTL_SECONDS = 86400; // 24h auto-cleanup
+
+function redisKey(userId: string, cacheKey: string): string {
+	return `gh:${userId}:${cacheKey}`;
+}
 
 function parseJson<T>(value: string): T {
 	return JSON.parse(value) as T;
@@ -29,49 +35,41 @@ export async function getGithubCacheEntry<T>(
 	userId: string,
 	cacheKey: string,
 ): Promise<GithubCacheEntry<T> | null> {
-	const row = await prisma.githubCacheEntry.findUnique({
-		where: { userId_cacheKey: { userId, cacheKey } },
-		cacheStrategy: { swr: 15 },
-	});
-
-	if (!row) return null;
-
-	return {
-		data: parseJson<T>(row.dataJson),
-		syncedAt: row.syncedAt,
-		etag: row.etag ?? null,
-	};
+	const entry = await redis.get<GithubCacheEntry<T>>(redisKey(userId, cacheKey));
+	return entry ?? null;
 }
 
 export async function upsertGithubCacheEntry<T>(
 	userId: string,
 	cacheKey: string,
-	cacheType: string,
+	_cacheType: string,
 	data: T,
 	etag: string | null = null,
 ) {
 	const now = new Date().toISOString();
-	const dataJson = JSON.stringify(data);
-
-	await prisma.githubCacheEntry.upsert({
-		where: { userId_cacheKey: { userId, cacheKey } },
-		create: { userId, cacheKey, cacheType, dataJson, syncedAt: now, etag },
-		update: { cacheType, dataJson, syncedAt: now, etag },
-	});
+	const entry: GithubCacheEntry<T> = { data, syncedAt: now, etag };
+	await redis.set(redisKey(userId, cacheKey), entry, { ex: REDIS_CACHE_TTL_SECONDS });
 }
 
 export async function touchGithubCacheEntrySyncedAt(userId: string, cacheKey: string) {
-	const now = new Date().toISOString();
-	await prisma.githubCacheEntry.update({
-		where: { userId_cacheKey: { userId, cacheKey } },
-		data: { syncedAt: now },
-	});
+	const key = redisKey(userId, cacheKey);
+	const entry = await redis.get<GithubCacheEntry<unknown>>(key);
+	if (!entry) return;
+	entry.syncedAt = new Date().toISOString();
+	await redis.set(key, entry, { keepTtl: true });
 }
 
 export async function deleteGithubCacheByPrefix(userId: string, prefix: string) {
-	await prisma.githubCacheEntry.deleteMany({
-		where: { userId, cacheKey: { startsWith: prefix } },
-	});
+	const pattern = `gh:${userId}:${prefix}*`;
+	let cursor = 0;
+	do {
+		const result = await redis.scan(cursor, { match: pattern, count: 100 });
+		const keys = result[1];
+		cursor = Number(result[0]);
+		if (keys.length > 0) {
+			await redis.del(...keys);
+		}
+	} while (cursor !== 0);
 }
 
 export async function enqueueGithubSyncJob<TPayload>(

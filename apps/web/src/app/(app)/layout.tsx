@@ -8,6 +8,7 @@ import { type GhostTabState } from "@/lib/chat-store";
 import { ColorThemeProvider } from "@/components/theme/theme-provider";
 import { CodeThemeProvider } from "@/components/theme/code-theme-provider";
 import { GitHubLinkInterceptor } from "@/components/shared/github-link-interceptor";
+import { MutationEventProvider } from "@/components/shared/mutation-event-provider";
 import { OnboardingOverlay } from "@/components/onboarding/onboarding-overlay";
 import { getAuthenticatedUser } from "@/lib/github";
 import { getUserSettings } from "@/lib/user-settings-store";
@@ -31,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
 	return (
 		<GlobalChatProvider initialTabState={initialTabState}>
+			<MutationEventProvider>
 			<ColorThemeProvider>
 				<CodeThemeProvider>
 					<GitHubLinkInterceptor>
@@ -66,6 +68,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 					</GitHubLinkInterceptor>
 				</CodeThemeProvider>
 			</ColorThemeProvider>
+			</MutationEventProvider>
 		</GlobalChatProvider>
 	);
 }

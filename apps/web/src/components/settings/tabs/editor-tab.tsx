@@ -7,6 +7,7 @@ import { useCodeTheme } from "@/components/theme/code-theme-provider";
 import { BUILT_IN_THEMES } from "@/lib/code-themes/built-in";
 import { CODE_FONTS } from "@/lib/code-themes/fonts";
 import type { CodeThemeOption } from "@/lib/code-themes/types";
+import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 const SAMPLE_CODE = `function fibonacci(n: number): number {
   if (n <= 1) return n;
@@ -36,6 +37,7 @@ export function EditorTab() {
 		setCodeFont,
 		setCodeFontSize,
 	} = useCodeTheme();
+	const { emit } = useMutationEvents();
 
 	const [customThemes, setCustomThemes] = useState<CustomThemeItem[]>([]);
 	const [importError, setImportError] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export function EditorTab() {
 			} else {
 				const theme = await res.json();
 				setCustomThemes((prev) => [theme, ...prev]);
+				emit({ type: "code-theme:created" });
 			}
 		} catch {
 			setImportError("Invalid JSON file");
@@ -101,6 +104,7 @@ export function EditorTab() {
 			// Reset selection if deleted theme was active
 			if (codeThemeDark === id) setCodeThemeDark("vitesse-black");
 			if (codeThemeLight === id) setCodeThemeLight("vitesse-light");
+			emit({ type: "code-theme:deleted" });
 		}
 	}
 

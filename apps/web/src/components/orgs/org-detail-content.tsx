@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
+import { CreateRepoDialog } from "@/components/repo/create-repo-dialog";
 
 export interface OrgDetails {
 	login: string;
@@ -278,10 +279,13 @@ export function OrgDetailContent({ org, repos }: { org: OrgDetails; repos: OrgRe
 							: "Name"}
 				</button>
 
-				<span className="text-[11px] text-muted-foreground/50 font-mono tabular-nums ml-auto">
-					{filtered.length}
-					{filtered.length !== repos.length && ` / ${repos.length}`}
-				</span>
+				<div className="flex items-center gap-2 ml-auto">
+					<CreateRepoDialog org={org.login} />
+					<span className="text-[11px] text-muted-foreground/50 font-mono tabular-nums">
+						{filtered.length}
+						{filtered.length !== repos.length && ` / ${repos.length}`}
+					</span>
+				</div>
 			</div>
 
 			{languages.length > 0 && (
