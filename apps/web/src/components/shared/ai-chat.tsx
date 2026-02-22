@@ -662,17 +662,33 @@ export function AIChat({
 							id: string;
 							role: "user" | "assistant" | "system";
 							content: string;
-						}) => ({
-							id: m.id,
-							role: m.role,
-							content: m.content,
-							parts: [
-								{
-									type: "text" as const,
-									text: m.content,
-								},
-							],
-						}),
+							partsJson?: string | null;
+						}) => {
+							if (m.partsJson) {
+								try {
+									const parts = JSON.parse(m.partsJson);
+									return {
+										id: m.id,
+										role: m.role,
+										content: m.content,
+										parts,
+									};
+								} catch {
+									// fall through to text-only
+								}
+							}
+							return {
+								id: m.id,
+								role: m.role,
+								content: m.content,
+								parts: [
+									{
+										type: "text" as const,
+										text: m.content,
+									},
+								],
+							};
+						},
 					);
 					setMessages(uiMessages);
 					initialMessageCountRef.current = uiMessages.length;
@@ -709,7 +725,6 @@ export function AIChat({
 					?.filter((p) => p.type === "text")
 					.map((p) => (p as { type: "text"; text: string }).text)
 					.join("") || "";
-			if (!text) continue;
 
 			fetch("/api/ai/chat-history", {
 				method: "POST",
@@ -717,7 +732,12 @@ export function AIChat({
 				body: JSON.stringify({
 					contextKey: persistKey,
 					chatType,
-					message: { id: msg.id, role: msg.role, content: text },
+					message: {
+						id: msg.id,
+						role: msg.role,
+						content: text,
+						partsJson: JSON.stringify(msg.parts),
+					},
 				}),
 			})
 				.then((res) => res.json())

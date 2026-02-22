@@ -16,6 +16,7 @@ export interface ChatMessage {
 	conversationId: string;
 	role: string;
 	content: string;
+	partsJson: string | null;
 	createdAt: string;
 }
 
@@ -46,6 +47,7 @@ function toMessage(row: {
 	conversationId: string;
 	role: string;
 	content: string;
+	partsJson: string | null;
 	createdAt: string;
 }): ChatMessage {
 	return {
@@ -53,6 +55,7 @@ function toMessage(row: {
 		conversationId: row.conversationId,
 		role: row.role,
 		content: row.content,
+		partsJson: row.partsJson,
 		createdAt: row.createdAt,
 	};
 }
@@ -88,7 +91,7 @@ export async function getOrCreateConversation(
 
 export async function saveMessage(
 	conversationId: string,
-	message: { id: string; role: string; content: string },
+	message: { id: string; role: string; content: string; partsJson?: string },
 ): Promise<ChatMessage> {
 	const now = new Date().toISOString();
 
@@ -99,9 +102,13 @@ export async function saveMessage(
 			conversationId,
 			role: message.role,
 			content: message.content,
+			partsJson: message.partsJson ?? null,
 			createdAt: now,
 		},
-		update: { content: message.content },
+		update: {
+			content: message.content,
+			partsJson: message.partsJson ?? undefined,
+		},
 	});
 
 	await prisma.chatConversation.update({
@@ -196,7 +203,7 @@ export async function updateActiveStreamId(
 
 export async function saveMessages(
 	conversationId: string,
-	messages: { id: string; role: string; content: string }[],
+	messages: { id: string; role: string; content: string; partsJson?: string }[],
 ): Promise<void> {
 	const now = new Date().toISOString();
 
@@ -208,9 +215,13 @@ export async function saveMessages(
 				conversationId,
 				role: message.role,
 				content: message.content,
+				partsJson: message.partsJson ?? null,
 				createdAt: now,
 			},
-			update: { content: message.content },
+			update: {
+				content: message.content,
+				partsJson: message.partsJson ?? undefined,
+			},
 		});
 	}
 

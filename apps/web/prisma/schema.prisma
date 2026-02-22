@@ -133,10 +133,11 @@ model ChatConversation {
 }
 
 model ChatMessage {
-  id             String @id
+  id             String  @id
   conversationId String
   role           String
   content        String
+  partsJson      String?
   createdAt      String
 
   conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)

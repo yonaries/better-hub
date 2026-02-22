@@ -3396,7 +3396,7 @@ export async function POST(req: Request) {
 				},
 				onFinish: async ({ messages: finishedMessages }) => {
 					try {
-						// Persist all messages server-side
+						// Persist all messages server-side with full parts
 						const toSave = finishedMessages.map((m) => ({
 							id: m.id,
 							role: m.role,
@@ -3408,6 +3408,7 @@ export async function POST(req: Request) {
 									)
 									.map((p) => p.text)
 									.join("") || "",
+							partsJson: JSON.stringify(m.parts),
 						}));
 						await saveMessagesToDb(convId, toSave);
 					} catch {
