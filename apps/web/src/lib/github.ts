@@ -2223,6 +2223,7 @@ export interface PRBundleData {
 		created_at: string;
 		user: { login: string; avatar_url: string; type?: string } | null;
 		pull_request_review_id: number;
+		reactions: ReactionSummary | undefined;
 	}[];
 	reviews: {
 		id: number;
@@ -2302,6 +2303,10 @@ const PR_BUNDLE_QUERY = `
                 originalLine
                 createdAt
                 author { __typename login avatarUrl }
+                reactionGroups {
+                  content
+                  reactors { totalCount }
+                }
               }
             }
           }
@@ -2448,6 +2453,7 @@ function transformGraphQLPRBundle(node: Record<string, any>): PRBundleData {
 						}
 					: null,
 				pull_request_review_id: reviewId,
+				reactions: mapReactionGroups(rc.reactionGroups),
 			});
 		}
 		return {
