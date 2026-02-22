@@ -4,14 +4,9 @@ import { after } from "next/server";
 import Redis from "ioredis";
 
 function getRedisUrl(): string {
-	const url =
-		process.env.REDIS_URL ??
-		process.env.KV_URL ??
-		process.env.UPSTASH_REDIS_URL;
+	const url = process.env.UPSTASH_REDIS_URL;
 	if (!url) {
-		throw new Error(
-			"Missing Redis TCP URL. Set REDIS_URL, KV_URL, or UPSTASH_REDIS_URL.",
-		);
+		throw new Error("Missing UPSTASH_REDIS_URL environment variable.");
 	}
 	return url;
 }
