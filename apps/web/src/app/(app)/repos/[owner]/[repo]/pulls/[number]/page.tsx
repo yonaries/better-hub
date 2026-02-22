@@ -93,6 +93,26 @@ export default async function PRDetailPage({
 	const canTriage = canWrite || permissions.triage;
 	const isOpen = pr.state === "open" && !pr.merged_at;
 
+	// Start highlighting in parallel with second batch
+	const prFiles = (files ?? []) as GitHubPRFile[];
+	const highlightPromise = (async () => {
+		const data: Record<string, Record<string, SyntaxToken[]>> = {};
+		if (prFiles.length > 0) {
+			await Promise.all(
+				prFiles.map(async (file) => {
+					if (file.patch) {
+						try {
+							data[file.filename] = await highlightDiffLines(file.patch, file.filename);
+						} catch {
+							// highlight error — skip file
+						}
+					}
+				}),
+			);
+		}
+		return data;
+	})();
+
 	const { checkStatus: checkStatusResult, prPinned, authorDossier } = await all({
 		checkStatus: async () => {
 			if (!isOpen) return undefined;
@@ -244,26 +264,8 @@ export default async function PRDetailPage({
 		return new Date(dateA).getTime() - new Date(dateB).getTime();
 	});
 
-	// Pre-highlight diff lines with Shiki
-	const prFiles = (files ?? []) as GitHubPRFile[];
-	const highlightData: Record<string, Record<string, SyntaxToken[]>> = {};
-	if (prFiles.length > 0) {
-		await Promise.all(
-			prFiles.map(async (file) => {
-				if (file.patch) {
-					try {
-						highlightData[file.filename] =
-							await highlightDiffLines(
-								file.patch,
-								file.filename,
-							);
-					} catch {
-						// highlight error — skip file
-					}
-				}
-			}),
-		);
-	}
+	// Resolve highlighting (started in parallel with second batch above)
+	const highlightData = await highlightPromise;
 
 	const showConflictResolver = sp.resolve === "conflicts" && isOpen;
 	const headSha = pr.head.sha;

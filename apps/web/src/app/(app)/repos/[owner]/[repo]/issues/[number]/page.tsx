@@ -29,12 +29,14 @@ export default async function IssueDetailPage({
 	const { owner, repo, number: numStr } = await params;
 	const issueNumber = parseInt(numStr, 10);
 
-	const [issue, rawComments, repoData, linkedPRs, currentUser] = await Promise.all([
+	const hdrs = await headers();
+	const [issue, rawComments, repoData, linkedPRs, currentUser, session] = await Promise.all([
 		getIssue(owner, repo, issueNumber),
 		getIssueComments(owner, repo, issueNumber),
 		getRepo(owner, repo),
 		getLinkedPullRequests(owner, repo, issueNumber),
 		getAuthenticatedUser(),
+		auth.api.getSession({ headers: hdrs }),
 	]);
 	const comments = rawComments as IssueComment[];
 
@@ -48,11 +50,10 @@ export default async function IssueDetailPage({
 		);
 	}
 
-	// Check pin status + embed issue content
-	const session = await auth.api.getSession({ headers: await headers() });
-	const issuePinned = session?.user?.id
-		? await isItemPinned(session.user.id, owner, repo, `/${owner}/${repo}/issues/${issueNumber}`)
-		: false;
+	// Start pin check in parallel with markdown rendering
+	const pinnedPromise = session?.user?.id
+		? isItemPinned(session.user.id, owner, repo, `/${owner}/${repo}/issues/${issueNumber}`)
+		: Promise.resolve(false);
 
 	// Fire-and-forget: embed issue content for semantic search
 	if (session?.user?.id) {
@@ -96,6 +97,7 @@ export default async function IssueDetailPage({
 			c.body ? renderMarkdownToHtml(c.body, undefined, issueRefCtx) : Promise.resolve(""),
 		),
 	]);
+	const issuePinned = await pinnedPromise;
 
 	const commentsWithHtml: IssueComment[] = (comments || []).map((c, i) => ({
 		...c,

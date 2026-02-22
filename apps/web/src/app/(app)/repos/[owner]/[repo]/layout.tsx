@@ -25,7 +25,16 @@ export default async function RepoLayout({
 }) {
 	const { owner, repo: repoName } = await params;
 
-	const pageData = await getRepoPageData(owner, repoName);
+	const pageDataPromise = getRepoPageData(owner, repoName);
+	const cachePromise = Promise.all([
+		getCachedRepoTree<FileTreeNode[]>(owner, repoName),
+		getCachedContributorAvatars(owner, repoName),
+		getCachedRepoLanguages(owner, repoName),
+		getCachedBranches(owner, repoName),
+		getCachedTags(owner, repoName),
+	]);
+
+	const pageData = await pageDataPromise;
 	if (!pageData) {
 		return (
 			<div className="py-16 text-center">
@@ -41,13 +50,7 @@ export default async function RepoLayout({
 	waitUntil(prefetchPRData(owner, repoName, { prefetchIssues: !repoData.private }));
 
 	const [cachedTree, cachedContributors, cachedLanguages, cachedBranches, cachedTags] =
-		await Promise.all([
-			getCachedRepoTree<FileTreeNode[]>(owner, repoName),
-			getCachedContributorAvatars(owner, repoName),
-			getCachedRepoLanguages(owner, repoName),
-			getCachedBranches(owner, repoName),
-			getCachedTags(owner, repoName),
-		]);
+		await cachePromise;
 
 	let tree: FileTreeNode[] | null = cachedTree;
 	if (!tree) {

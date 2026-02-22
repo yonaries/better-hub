@@ -8,13 +8,12 @@ export default async function ActivityPage({
 }) {
 	const { owner, repo } = await params;
 
-	const repoData = await getRepo(owner, repo);
-	if (!repoData) return null;
-
-	const [events, commitActivity] = await Promise.all([
+	const [repoData, events, commitActivity] = await Promise.all([
+		getRepo(owner, repo),
 		getRepoEvents(owner, repo, 100),
 		getCommitActivity(owner, repo),
 	]);
+	if (!repoData) return null;
 
 	return (
 		<RepoActivityView

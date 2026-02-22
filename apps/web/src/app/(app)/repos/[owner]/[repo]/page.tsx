@@ -19,7 +19,10 @@ export default async function RepoPage({
 }) {
 	const { owner, repo } = await params;
 
-	const pageData = await getRepoPageData(owner, repo);
+	const pageDataPromise = getRepoPageData(owner, repo);
+	const readmePromise = getCachedReadmeHtml(owner, repo);
+
+	const pageData = await pageDataPromise;
 	if (!pageData) return null;
 
 	const { repoData, navCounts } = pageData;
@@ -36,7 +39,7 @@ export default async function RepoPage({
 		initialCIStatus,
 		initialPinnedItems,
 	] = await Promise.all([
-		getCachedReadmeHtml(owner, repo),
+		readmePromise,
 		isMaintainer ? getCachedOverviewPRs(owner, repo) : null,
 		isMaintainer ? getCachedOverviewIssues(owner, repo) : null,
 		isMaintainer ? getCachedOverviewEvents(owner, repo) : null,
