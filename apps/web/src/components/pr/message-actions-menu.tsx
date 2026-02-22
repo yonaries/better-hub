@@ -10,20 +10,25 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { deletePRComment } from "@/app/(app)/repos/[owner]/[repo]/pulls/pr-actions";
+import { deleteIssueComment } from "@/app/(app)/repos/[owner]/[repo]/issues/issue-actions";
 
-interface MessageActionsMenuProps {
+type MessageActionsMenuProps = {
 	owner: string;
 	repo: string;
-	pullNumber: number;
 	commentId: number;
 	body: string;
 	onDelete?: () => void;
-}
+} & (
+	| { contentType: "pr"; pullNumber: number; issueNumber?: never }
+	| { contentType: "issue"; issueNumber: number; pullNumber?: never }
+);
 
 export function MessageActionsMenu({
 	owner,
 	repo,
+	contentType,
 	pullNumber,
+	issueNumber,
 	commentId,
 	body,
 	onDelete,
@@ -32,7 +37,9 @@ export function MessageActionsMenu({
 	const [open, setOpen] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 
-	const commentUrl = `https://github.com/${owner}/${repo}/pull/${pullNumber}#issuecomment-${commentId}`;
+	const number = contentType === "pr" ? pullNumber : issueNumber;
+	const urlType = contentType === "pr" ? "pull" : "issues";
+	const commentUrl = `https://github.com/${owner}/${repo}/${urlType}/${number}#issuecomment-${commentId}`;
 
 	useEffect(() => {
 		if (copied) {
@@ -70,7 +77,10 @@ export function MessageActionsMenu({
 		e.preventDefault();
 		setDeleting(true);
 		setOpen(false);
-		const result = await deletePRComment(owner, repo, pullNumber, commentId);
+		const result =
+			contentType === "pr"
+				? await deletePRComment(owner, repo, pullNumber!, commentId)
+				: await deleteIssueComment(owner, repo, issueNumber!, commentId);
 		if (result.error) {
 			alert(result.error);
 		} else {

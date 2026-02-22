@@ -390,6 +390,7 @@ async function ChatMessage({
 			reactionsContent={reactionsContent}
 			owner={owner}
 			repo={repo}
+			contentType="pr"
 			pullNumber={pullNumber}
 			commentId={entry.id as number}
 			body={entry.body}
