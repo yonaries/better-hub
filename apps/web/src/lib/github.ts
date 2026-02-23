@@ -1,7 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import { headers } from "next/headers";
 import { cache } from "react";
-import { $Session, auth, getServerSession } from "./auth";
+import { $Session, getServerSession } from "./auth";
 import {
 	claimDueGithubSyncJobs,
 	deleteGithubCacheByPrefix,
@@ -16,7 +16,6 @@ import {
 	upsertSharedCacheEntry,
 } from "./github-sync-store";
 import { redis } from "./redis";
-import { all } from "better-all";
 import { computeContributorScore } from "./contributor-score";
 import { getCachedAuthorDossier, setCachedAuthorDossier } from "./repo-data-cache";
 
@@ -573,8 +572,13 @@ async function fetchUserOrgsFromGitHub(octokit: Octokit, perPage: number) {
 }
 
 async function fetchOrgFromGitHub(octokit: Octokit, org: string) {
-	const { data } = await octokit.orgs.get({ org });
-	return data;
+	try {
+		const { data } = await octokit.orgs.get({ org });
+		return data;
+	} catch (error) {
+		// 404
+		return null;
+	}
 }
 
 async function fetchOrgReposFromGitHub(
@@ -1006,11 +1010,7 @@ async function upsertCacheWithShared<T>(
 	}
 }
 
-async function touchCacheWithShared(
-	userId: string,
-	cacheKey: string,
-	cacheType: string,
-) {
+async function touchCacheWithShared(userId: string, cacheKey: string, cacheType: string) {
 	await touchGithubCacheEntrySyncedAt(userId, cacheKey);
 	if (isShareableCacheType(cacheType)) {
 		touchSharedCacheEntrySyncedAt(cacheKey).catch(() => {});
@@ -1372,7 +1372,11 @@ async function processGitDataSyncJob(
 					rdCached?.etag ?? null,
 				);
 				if (rdRes.notModified) {
-					await touchCacheWithShared(authCtx.userId, rdKey, "repo_readme");
+					await touchCacheWithShared(
+						authCtx.userId,
+						rdKey,
+						"repo_readme",
+					);
 				} else {
 					const rdData = rdRes.data as {
 						content: string;
@@ -1737,7 +1741,13 @@ async function readLocalFirstGitData<T>({
 	if (shareable) {
 		const shared = await getSharedCacheEntry<T>(cacheKey);
 		if (shared) {
-			upsertGithubCacheEntry(authCtx.userId, cacheKey, cacheType, shared.data, shared.etag).catch(() => {});
+			upsertGithubCacheEntry(
+				authCtx.userId,
+				cacheKey,
+				cacheType,
+				shared.data,
+				shared.etag,
+			).catch(() => {});
 			await enqueueGitDataSync(authCtx, jobType, cacheKey, jobPayload);
 			return shared.data;
 		}
