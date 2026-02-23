@@ -3,6 +3,7 @@ import Image from "next/image";
 import { GitCommitHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
+import { parseCoAuthors, getInitials } from "@/lib/commit-utils";
 import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import { CollapsibleReviewCard } from "./collapsible-review-card";
 import { BotActivityGroup } from "./bot-activity-group";
@@ -445,6 +446,7 @@ function CommitGroup({ commits }: { commits: CommitEntry[] }) {
 		<div className="rounded-lg border border-border/60 overflow-hidden">
 			{commits.map((commit, i) => {
 				const firstLine = commit.message.split("\n")[0];
+				const coAuthors = parseCoAuthors(commit.message);
 				return (
 					<div
 						key={commit.sha}
@@ -454,19 +456,33 @@ function CommitGroup({ commits }: { commits: CommitEntry[] }) {
 						)}
 					>
 						<GitCommitHorizontal className="w-3.5 h-3.5 text-muted-foreground/30 shrink-0" />
-						{commit.user ? (
-							<Link href={`/users/${commit.user.login}`}>
-								<Image
-									src={commit.user.avatar_url}
-									alt={commit.user.login}
-									width={16}
-									height={16}
-									className="rounded-full shrink-0"
-								/>
-							</Link>
-						) : (
-							<div className="w-4 h-4 rounded-full bg-muted-foreground shrink-0" />
-						)}
+						<div className="flex items-center -space-x-1 shrink-0">
+							{commit.user ? (
+								<Link href={`/users/${commit.user.login}`} className="relative z-10">
+									<Image
+										src={commit.user.avatar_url}
+										alt={commit.user.login}
+										width={16}
+										height={16}
+										className="rounded-full border border-background"
+									/>
+								</Link>
+							) : (
+								<div className="w-4 h-4 rounded-full bg-muted-foreground border border-background relative z-10 shrink-0" />
+							)}
+							{coAuthors.slice(0, 2).map((ca, ci) => (
+								<div
+									key={ca.email}
+									className="rounded-full bg-muted border border-background flex items-center justify-center shrink-0 relative"
+									style={{ width: 16, height: 16, zIndex: 9 - ci }}
+									title={`${ca.name} <${ca.email}>`}
+								>
+									<span className="text-[7px] font-medium text-muted-foreground leading-none">
+										{getInitials(ca.name)}
+									</span>
+								</div>
+							))}
+						</div>
 						<span className="text-xs text-foreground/80 truncate flex-1 min-w-0">
 							{firstLine}
 						</span>

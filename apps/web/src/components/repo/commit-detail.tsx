@@ -7,6 +7,7 @@ import { parseDiffPatch, type DiffLine, type DiffSegment } from "@/lib/github-ut
 import type { SyntaxToken } from "@/lib/shiki";
 import { cn } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
+import { parseCoAuthors, getCommitBody, getInitials } from "@/lib/commit-utils";
 import {
 	File,
 	FilePlus2,
@@ -130,10 +131,10 @@ export function CommitDetail({ owner, repo, commit, highlightData }: CommitDetai
 		setTimeout(() => setCopiedSha(false), 2000);
 	};
 
-	// Parse the commit message: first line is title, rest is body
-	const messageLines = commit.commit.message.split("\n");
-	const title = messageLines[0];
-	const body = messageLines.slice(1).join("\n").trim();
+	// Parse the commit message: first line is title, rest is body (excluding co-author trailers)
+	const title = commit.commit.message.split("\n")[0];
+	const body = getCommitBody(commit.commit.message);
+	const coAuthors = parseCoAuthors(commit.commit.message);
 
 	const authorDate = commit.commit.author?.date;
 	const authorName = commit.author?.login ?? commit.commit.author?.name ?? "Unknown";
@@ -205,6 +206,31 @@ export function CommitDetail({ owner, repo, commit, highlightData }: CommitDetai
 							</span>
 						)}
 					</div>
+
+					{/* Co-authors */}
+					{coAuthors.length > 0 && (
+						<>
+							<span className="text-muted-foreground/30">|</span>
+							<div className="flex items-center gap-1.5">
+								{coAuthors.map((ca) => (
+									<div
+										key={ca.email}
+										className="flex items-center gap-1"
+										title={`${ca.name} <${ca.email}>`}
+									>
+										<div className="rounded-full bg-muted flex items-center justify-center shrink-0 h-[18px] w-[18px]">
+											<span className="text-[7px] font-medium text-muted-foreground leading-none">
+												{getInitials(ca.name)}
+											</span>
+										</div>
+										<span className="text-xs text-foreground/70">
+											{ca.name}
+										</span>
+									</div>
+								))}
+							</div>
+						</>
+					)}
 
 					<span className="text-muted-foreground/30">|</span>
 

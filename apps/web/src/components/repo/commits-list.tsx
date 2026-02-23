@@ -3,12 +3,13 @@
 import { useState, useTransition, useMemo, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { GitBranch, ChevronDown, Search, Check, X } from "lucide-react";
+import { GitBranch, ChevronDown, Search, Check, X, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { fetchCommitsByDate } from "@/app/(app)/repos/[owner]/[repo]/commits/actions";
 import { useMutationSubscription } from "@/hooks/use-mutation-subscription";
 import { isRepoEvent, type MutationEvent } from "@/lib/mutation-events";
+import { parseCoAuthors, getCommitBody, getInitials, type CoAuthor } from "@/lib/commit-utils";
 
 type Commit = {
 	sha: string;
@@ -180,9 +181,25 @@ function groupByDate(commits: Commit[]) {
 	return Object.entries(groups);
 }
 
+function CoAuthorBadge({ coAuthor, size = 20 }: { coAuthor: CoAuthor; size?: number }) {
+	const initials = getInitials(coAuthor.name);
+	return (
+		<div
+			className="rounded-full bg-muted border border-background flex items-center justify-center shrink-0"
+			style={{ width: size, height: size }}
+			title={`${coAuthor.name} <${coAuthor.email}>`}
+		>
+			<span className="text-[8px] font-medium text-muted-foreground leading-none">
+				{initials}
+			</span>
+		</div>
+	);
+}
+
 export function CommitsList({ owner, repo, commits, defaultBranch, branches }: CommitsListProps) {
 	const [search, setSearch] = useState("");
 	const [copiedSha, setCopiedSha] = useState<string | null>(null);
+	const [expandedShas, setExpandedShas] = useState<Set<string>>(new Set());
 	const [since, setSince] = useState("");
 	const [until, setUntil] = useState("");
 	const [currentBranch, setCurrentBranch] = useState(defaultBranch);
@@ -271,6 +288,15 @@ export function CommitsList({ owner, repo, commits, defaultBranch, branches }: C
 		setTimeout(() => setCopiedSha(null), 2000);
 	};
 
+	const toggleExpand = (sha: string) => {
+		setExpandedShas((prev) => {
+			const next = new Set(prev);
+			if (next.has(sha)) next.delete(sha);
+			else next.add(sha);
+			return next;
+		});
+	};
+
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center gap-2">
@@ -354,106 +380,113 @@ export function CommitsList({ owner, repo, commits, defaultBranch, branches }: C
 					<div className="overflow-hidden rounded-md border border-border">
 						{dateCommits.map((commit, i) => {
 							const firstLine =
-								commit.commit.message.split(
-									"\n",
-								)[0];
+								commit.commit.message.split("\n")[0];
 							const login = commit.author?.login;
 							const avatarUrl = commit.author?.avatar_url;
 							const shortSha = commit.sha.slice(0, 7);
+							const coAuthors = parseCoAuthors(commit.commit.message);
+							const body = getCommitBody(commit.commit.message);
+							const isExpanded = expandedShas.has(commit.sha);
 
 							return (
 								<div
 									key={commit.sha}
 									className={cn(
-										"flex items-start gap-3 px-4 py-3",
-										i > 0 &&
-											"border-t border-border",
+										i > 0 && "border-t border-border",
 									)}
 								>
-									{avatarUrl ? (
-										<Link
-											href={`/${login}`}
-											className="mt-0.5 shrink-0"
-										>
-											<Image
-												src={
-													avatarUrl
-												}
-												alt={
-													login ??
-													""
-												}
-												width={
-													24
-												}
-												height={
-													24
-												}
-												className="rounded-full"
-											/>
-										</Link>
-									) : (
-										<div className="mt-0.5 h-6 w-6 shrink-0 rounded-full bg-muted" />
-									)}
-
-									<div className="min-w-0 flex-1">
-										<Link
-											href={`/${owner}/${repo}/commits/${commit.sha}`}
-											className="text-sm font-medium text-foreground hover:text-info line-clamp-1"
-										>
-											{firstLine}
-										</Link>
-										<p className="mt-0.5 text-xs text-muted-foreground">
-											{login ? (
+									<div className="flex items-start gap-3 px-4 py-3">
+										{/* Avatar group: author + co-authors */}
+										<div className="mt-0.5 flex items-center -space-x-1 shrink-0">
+											{avatarUrl ? (
 												<Link
 													href={`/${login}`}
-													className="hover:underline"
+													className="shrink-0 relative z-10"
 												>
-													{
-														login
-													}
+													<Image
+														src={avatarUrl}
+														alt={login ?? ""}
+														width={24}
+														height={24}
+														className="rounded-full border border-background"
+													/>
 												</Link>
 											) : (
-												(commit
-													.commit
-													.author
-													?.name ??
-												"Unknown")
+												<div className="h-6 w-6 shrink-0 rounded-full bg-muted border border-background relative z-10" />
 											)}
-											{commit
-												.commit
-												.author
-												?.date && (
-												<>
-													{" "}
-													·{" "}
-													<TimeAgo
-														date={
-															commit
-																.commit
-																.author
-																.date
-														}
-													/>
-												</>
-											)}
-										</p>
+											{coAuthors.slice(0, 3).map((ca, ci) => (
+												<div key={ca.email} className="relative" style={{ zIndex: 9 - ci }}>
+													<CoAuthorBadge coAuthor={ca} size={20} />
+												</div>
+											))}
+										</div>
+
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-1">
+												<Link
+													href={`/${owner}/${repo}/commits/${commit.sha}`}
+													className="text-sm font-medium text-foreground hover:text-info line-clamp-1"
+												>
+													{firstLine}
+												</Link>
+												{body && (
+													<button
+														onClick={() => toggleExpand(commit.sha)}
+														title={isExpanded ? "Collapse" : "Expand commit message"}
+														className="shrink-0 p-0.5 rounded text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+													>
+														<MoreHorizontal className="w-3.5 h-3.5" />
+													</button>
+												)}
+											</div>
+											<p className="mt-0.5 text-xs text-muted-foreground">
+												{login ? (
+													<Link
+														href={`/${login}`}
+														className="hover:underline"
+													>
+														{login}
+													</Link>
+												) : (
+													(commit.commit.author?.name ?? "Unknown")
+												)}
+												{coAuthors.length > 0 && (
+													<>
+														{" & "}
+														{coAuthors.map((ca, ci) => (
+															<span key={ca.email}>
+																{ci > 0 && ", "}
+																{ca.name}
+															</span>
+														))}
+													</>
+												)}
+												{commit.commit.author?.date && (
+													<>
+														{" · "}
+														<TimeAgo date={commit.commit.author.date} />
+													</>
+												)}
+											</p>
+										</div>
+
+										<button
+											onClick={() => copySha(commit.sha)}
+											title="Copy full SHA"
+											className="mt-0.5 shrink-0 cursor-pointer rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted"
+										>
+											{copiedSha === commit.sha ? "Copied!" : shortSha}
+										</button>
 									</div>
 
-									<button
-										onClick={() =>
-											copySha(
-												commit.sha,
-											)
-										}
-										title="Copy full SHA"
-										className="mt-0.5 shrink-0 cursor-pointer rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted"
-									>
-										{copiedSha ===
-										commit.sha
-											? "Copied!"
-											: shortSha}
-									</button>
+									{/* Expanded commit body */}
+									{isExpanded && body && (
+										<div className="px-4 pb-3 pl-[52px]">
+											<pre className="text-xs text-muted-foreground font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto border-l-2 border-border pl-3">
+												{body}
+											</pre>
+										</div>
+									)}
 								</div>
 							);
 						})}
