@@ -1,8 +1,5 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
-import { PanelLeft } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
 import { RepoBreadcrumb } from "@/components/repo/repo-breadcrumb";
 import { useState, useCallback, useRef, useEffect, useTransition } from "react";
 import Link from "next/link";
@@ -33,8 +30,6 @@ export function RepoLayoutWrapper({
 	initialWidth = DEFAULT_WIDTH,
 	ownerType,
 }: RepoLayoutWrapperProps) {
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_WIDTH);
-	const lastOpenWidthRef = useRef(DEFAULT_WIDTH);
 	const [sidebarWidth, setSidebarWidth] = useState(initialCollapsed ? 0 : initialWidth);
 	const lastOpenWidthRef = useRef(initialWidth);
 	const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
