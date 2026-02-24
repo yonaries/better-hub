@@ -35,8 +35,12 @@ export function MutationEventProvider({ children }: { children: ReactNode }) {
 	);
 }
 
+const noopCtx: MutationEventContextValue = {
+	emit: () => {},
+	subscribe: () => () => {},
+};
+
 export function useMutationEvents() {
 	const ctx = useContext(MutationEventContext);
-	if (!ctx) throw new Error("useMutationEvents must be used within MutationEventProvider");
-	return ctx;
+	return ctx ?? noopCtx;
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { LogOut, Trash2, Github, Users } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { LogOut, Trash2, Github, Users, Shield, Check, Lock, Info, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut } from "@/lib/auth-client";
+import { signIn, signOut } from "@/lib/auth-client";
+import { SCOPE_GROUPS, scopesToGroupIds } from "@/lib/github-scopes";
 import type { UserSettings } from "@/lib/user-settings-store";
 
 interface AccountTabProps {
@@ -16,8 +17,90 @@ interface AccountTabProps {
 	onUpdate: (updates: Partial<UserSettings>) => Promise<void>;
 }
 
+function InfoPopover({ text, children }: { text: string; children: React.ReactNode }) {
+	const [open, setOpen] = useState(false);
+	const timeout = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+	const show = useCallback(() => {
+		clearTimeout(timeout.current);
+		setOpen(true);
+	}, []);
+
+	const hide = useCallback(() => {
+		timeout.current = setTimeout(() => setOpen(false), 150);
+	}, []);
+
+	useEffect(() => () => clearTimeout(timeout.current), []);
+
+	return (
+		<div
+			className="relative inline-flex"
+			onMouseEnter={show}
+			onMouseLeave={hide}
+		>
+			{children}
+			{open && (
+				<div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 px-3 py-2 rounded-md bg-foreground text-background text-[11px] leading-relaxed shadow-lg z-50 pointer-events-none">
+					{text}
+					<div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-foreground" />
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function AccountTab({ user, settings, onUpdate }: AccountTabProps) {
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [grantedGroupIds, setGrantedGroupIds] = useState<Set<string>>(new Set());
+	const [selected, setSelected] = useState<Set<string>>(new Set());
+	const [scopesLoading, setScopesLoading] = useState(true);
+	const [updating, setUpdating] = useState(false);
+
+	useEffect(() => {
+		fetch("/api/user-scopes")
+			.then((res) => res.json())
+			.then((data: { scopes: string[] }) => {
+				const ids = scopesToGroupIds(data.scopes);
+				setGrantedGroupIds(ids);
+				setSelected(new Set(ids));
+			})
+			.finally(() => setScopesLoading(false));
+	}, []);
+
+	function toggle(id: string) {
+		const group = SCOPE_GROUPS.find((g) => g.id === id);
+		if (group?.required) return;
+		setSelected((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	}
+
+	const hasChanges = (() => {
+		for (const id of selected) {
+			if (!grantedGroupIds.has(id)) return true;
+		}
+		for (const id of grantedGroupIds) {
+			if (!selected.has(id)) return true;
+		}
+		return false;
+	})();
+
+	function handleUpdatePermissions() {
+		setUpdating(true);
+		const scopes: string[] = [];
+		for (const g of SCOPE_GROUPS) {
+			if (selected.has(g.id)) scopes.push(...g.scopes);
+		}
+		signIn.social({
+			provider: "github",
+			callbackURL: "/dashboard",
+			scopes,
+		});
+	}
+
 	async function handleDeleteAccount() {
 		if (!confirmDelete) {
 			setConfirmDelete(true);
@@ -78,6 +161,118 @@ export function AccountTab({ user, settings, onUpdate }: AccountTabProps) {
 						</span>
 					</div>
 				</div>
+			</div>
+
+			{/* GitHub Permissions */}
+			<div className="px-4 py-4">
+				<label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+					<Shield className="w-3 h-3" />
+					GitHub Permissions
+				</label>
+				<p className="mt-1 text-[10px] text-muted-foreground/50 font-mono">
+					Manage which GitHub permissions are granted to Better Hub. Toggle scopes and click update to re-authorize.
+				</p>
+
+				{scopesLoading ? (
+					<div className="mt-3 flex items-center gap-2 text-muted-foreground text-[10px] font-mono">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 animate-spin">
+							<g fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2">
+								<path strokeDasharray="60" strokeDashoffset="60" strokeOpacity=".3" d="M12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3Z">
+									<animate fill="freeze" attributeName="stroke-dashoffset" dur="1.3s" values="60;0" />
+								</path>
+								<path strokeDasharray="15" strokeDashoffset="15" d="M12 3C16.9706 3 21 7.02944 21 12">
+									<animate fill="freeze" attributeName="stroke-dashoffset" dur="0.3s" values="15;0" />
+									<animateTransform attributeName="transform" dur="1.5s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12" />
+								</path>
+							</g>
+						</svg>
+						Loading permissions...
+					</div>
+				) : (
+					<>
+						<div className="flex flex-wrap gap-1.5 mt-3">
+							{SCOPE_GROUPS.map((group) => {
+								const isGranted = grantedGroupIds.has(group.id);
+								const isOn = selected.has(group.id);
+								return (
+									<span
+										key={group.id}
+										className={cn(
+											"inline-flex items-stretch rounded-full border text-[12px] transition-colors",
+											isOn
+												? "border-foreground/30 bg-foreground/10 text-foreground"
+												: "border-foreground/10 text-foreground/40",
+										)}
+									>
+										<button
+											type="button"
+											onClick={() => toggle(group.id)}
+											disabled={group.required}
+											className={cn(
+												"inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 transition-colors",
+												!isOn && "line-through decoration-foreground/20",
+												group.required
+													? "cursor-default"
+													: "cursor-pointer hover:text-foreground/70",
+											)}
+										>
+											{isOn &&
+												(group.required ? (
+													<Lock className="w-2.5 h-2.5 shrink-0" />
+												) : (
+													<Check className="w-2.5 h-2.5 shrink-0" />
+												))}
+											{group.label}
+											{isGranted && isOn && (
+												<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+											)}
+										</button>
+										<InfoPopover text={group.reason}>
+											<span
+												className={cn(
+													"inline-flex items-center pr-2 pl-1 border-l transition-colors",
+													isOn
+														? "border-foreground/15 text-foreground/30 hover:text-foreground/60"
+														: "border-foreground/10 text-foreground/20 hover:text-foreground/50",
+												)}
+											>
+												<Info className="w-3 h-3" />
+											</span>
+										</InfoPopover>
+									</span>
+								);
+							})}
+						</div>
+
+						<div className="flex items-center gap-3 mt-3">
+							<button
+								onClick={handleUpdatePermissions}
+								disabled={!hasChanges || updating}
+								className={cn(
+									"flex items-center gap-1.5 border px-3 py-1.5 text-xs font-mono transition-colors cursor-pointer",
+									hasChanges
+										? "border-foreground/30 text-foreground hover:bg-muted/50 dark:hover:bg-white/[0.04]"
+										: "border-border text-muted-foreground/40 cursor-not-allowed",
+								)}
+							>
+								<ExternalLink className="w-3 h-3" />
+								{updating ? "Redirecting..." : "Update permissions"}
+							</button>
+							{hasChanges && (
+								<span className="text-[10px] font-mono text-muted-foreground/50">
+									Redirects to GitHub to re-authorize
+								</span>
+							)}
+						</div>
+
+						<div className="flex items-center gap-1.5 mt-2">
+							<span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+							<span className="text-[10px] font-mono text-muted-foreground/40">
+								= currently granted
+							</span>
+						</div>
+					</>
+				)}
 			</div>
 
 			{/* GitHub Accounts */}

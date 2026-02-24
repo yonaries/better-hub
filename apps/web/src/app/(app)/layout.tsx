@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 						<GitHubLinkInterceptor>
 							<NavigationProgress />
 							<div className="flex flex-col h-dvh overflow-y-auto lg:overflow-hidden">
-								<AppNavbar session={session} />
+								<AppNavbar session={session} notifications={notifications} />
 								<div className="mt-10 lg:h-[calc(100dvh-var(--spacing)*10)] flex flex-col px-2 sm:px-4 pt-2 lg:overflow-auto">
 									{children}
 								</div>

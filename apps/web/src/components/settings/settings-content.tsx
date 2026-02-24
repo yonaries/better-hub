@@ -47,7 +47,7 @@ export function SettingsContent({ initialSettings, user }: SettingsContentProps)
 	return (
 		<div className="flex flex-col flex-1 min-h-0">
 			{/* Header */}
-			<div className="shrink-0 mb-4">
+			<div className="shrink-0 px-6 pt-6 pb-4">
 				<h1 className="text-xl font-medium tracking-tight">Settings</h1>
 				<p className="text-[11px] text-muted-foreground font-mono mt-1">
 					Manage your preferences, AI model configuration, and
@@ -56,7 +56,7 @@ export function SettingsContent({ initialSettings, user }: SettingsContentProps)
 			</div>
 
 			{/* Tab bar */}
-			<div className="shrink-0 flex items-center border border-border mb-0 overflow-x-auto no-scrollbar">
+			<div className="shrink-0 flex items-center border border-border mx-6 mb-0 overflow-x-auto no-scrollbar">
 				{TABS.map(({ id, label, icon: Icon }) => (
 					<button
 						key={id}
@@ -74,8 +74,8 @@ export function SettingsContent({ initialSettings, user }: SettingsContentProps)
 				))}
 			</div>
 
-			{/* Content */}
-			<div className="flex-1 min-h-0 border border-t-0 border-border">
+			{/* Content — only this area scrolls */}
+			<div className="flex-1 min-h-0 overflow-y-auto border border-t-0 border-border mx-6 mb-6">
 				{activeTab === "general" && (
 					<GeneralTab settings={settings} onUpdate={handleUpdate} />
 				)}
