@@ -112,9 +112,10 @@ export function DashboardContent({
 					<div className="shrink-0 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
 						<Stat
 							icon={<Eye className="w-3.5 h-3.5" />}
-							label="Reviews"
+							label="Needs review"
 							value={reviewRequests.total_count}
 							accent={reviewRequests.total_count > 0}
+							active={activeTab === "reviews"}
 							onClick={() => handleStatClick("reviews")}
 						/>
 						<Stat
@@ -124,6 +125,7 @@ export function DashboardContent({
 							label="Open PRs"
 							value={myOpenPRs.total_count}
 							accent={myOpenPRs.total_count > 0}
+							active={activeTab === "prs"}
 							onClick={() => handleStatClick("prs")}
 						/>
 						<Stat
@@ -131,6 +133,7 @@ export function DashboardContent({
 							label="Assigned Issues"
 							value={myIssues.total_count}
 							accent={myIssues.total_count > 0}
+							active={activeTab === "issues"}
 							onClick={() => handleStatClick("issues")}
 						/>
 						<Stat
@@ -141,6 +144,7 @@ export function DashboardContent({
 									(n) => n.unread,
 								).length
 							}
+							active={activeTab === "notifs"}
 							onClick={() => handleStatClick("notifs")}
 						/>
 					</div>
@@ -449,6 +453,7 @@ function Stat({
 	label,
 	value,
 	accent,
+	active,
 	onClick,
 	href,
 }: {
@@ -456,6 +461,7 @@ function Stat({
 	label: string;
 	value: number;
 	accent?: boolean;
+	active?: boolean;
 	onClick?: () => void;
 	href?: string;
 }) {
@@ -476,7 +482,14 @@ function Stat({
 					>
 						{icon}
 					</span>
-					<span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+					<span
+						className={cn(
+							"text-[10px] font-mono uppercase tracking-wider",
+							active
+								? "text-foreground"
+								: "text-muted-foreground/60",
+						)}
+					>
 						{label}
 					</span>
 				</div>
@@ -501,12 +514,12 @@ function Stat({
 
 	const className = cn(
 		"stat-card relative overflow-hidden rounded-lg px-3 py-3 text-left w-full",
-		"border border-black/[0.04] dark:border-white/[0.06]",
 		"bg-gradient-to-br from-black/[0.02] via-black/[0.01] to-transparent dark:from-white/[0.04] dark:via-white/[0.02] dark:to-transparent",
 		"transition-all duration-150 cursor-pointer",
 		"hover:border-black/[0.08] dark:hover:border-white/[0.12]",
 		"hover:bg-gradient-to-br hover:from-black/[0.04] hover:via-black/[0.02] dark:hover:from-white/[0.06] dark:hover:via-white/[0.03]",
-		"dark:active:from-white/[0.03] dark:active:via-white/[0.02] transition-all duration-150",
+		"dark:active:from-white/[0.03] dark:active:via-white/[0.02]",
+		active ? "border border-primary/20!" : "border border-border/50!",
 	);
 
 	if (href) {
@@ -521,34 +534,6 @@ function Stat({
 		<button type="button" onClick={onClick} className={className}>
 			{content}
 		</button>
-	);
-}
-
-/* ── Panel ─────────────────────────────────────────────────────────── */
-
-function Panel({
-	title,
-	count,
-	children,
-}: {
-	title: string;
-	count?: number;
-	children: React.ReactNode;
-}) {
-	return (
-		<section className="border border-border">
-			<div className="flex items-center gap-2 px-4 py-2 border-b border-border">
-				<h2 className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-					{title}
-				</h2>
-				{count !== undefined && (
-					<span className="text-[10px] font-mono text-muted-foreground/50 tabular-nums ml-auto">
-						{count}
-					</span>
-				)}
-			</div>
-			<div>{children}</div>
-		</section>
 	);
 }
 
