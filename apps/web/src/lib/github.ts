@@ -2339,6 +2339,13 @@ export interface PRBundleData {
 		};
 		author: { login: string; avatar_url: string } | null;
 	}[];
+	stateEvents: {
+		id: string;
+		event: "closed" | "reopened" | "merged" | "ready_for_review" | "convert_to_draft";
+		created_at: string;
+		actor: { login: string; avatar_url: string } | null;
+		merge_ref_name?: string;
+	}[];
 }
 
 const PR_BUNDLE_QUERY = `
@@ -2438,6 +2445,32 @@ const PR_BUNDLE_QUERY = `
               committer { name date }
             }
             resourcePath
+          }
+        }
+        timelineItems(first: 100, itemTypes: [CLOSED_EVENT, REOPENED_EVENT, MERGED_EVENT, READY_FOR_REVIEW_EVENT, CONVERT_TO_DRAFT_EVENT]) {
+          nodes {
+            __typename
+            ... on ClosedEvent {
+              createdAt
+              actor { login avatarUrl }
+            }
+            ... on ReopenedEvent {
+              createdAt
+              actor { login avatarUrl }
+            }
+            ... on MergedEvent {
+              createdAt
+              actor { login avatarUrl }
+              mergeRefName
+            }
+            ... on ReadyForReviewEvent {
+              createdAt
+              actor { login avatarUrl }
+            }
+            ... on ConvertToDraftEvent {
+              createdAt
+              actor { login avatarUrl }
+            }
           }
         }
       }
@@ -2607,9 +2640,29 @@ function transformGraphQLPRBundle(node: Record<string, any>): PRBundleData {
 			author: null,
 		};
 	});
+
+	const eventTypeMap: Record<string, PRBundleData["stateEvents"][0]["event"]> = {
+		ClosedEvent: "closed",
+		ReopenedEvent: "reopened",
+		MergedEvent: "merged",
+		ReadyForReviewEvent: "ready_for_review",
+		ConvertToDraftEvent: "convert_to_draft",
+	};
+
+	const stateEvents: PRBundleData["stateEvents"] = (node.timelineItems?.nodes ?? [])
+		.filter((e: Record<string, any>) => e?.__typename && eventTypeMap[e.__typename])
+		.map((e: Record<string, any>, index: number) => ({
+			id: `${e.__typename}-${e.createdAt}-${index}`,
+			event: eventTypeMap[e.__typename],
+			created_at: e.createdAt,
+			actor: e.actor
+				? { login: e.actor.login, avatar_url: e.actor.avatarUrl }
+				: null,
+			merge_ref_name: e.mergeRefName ?? undefined,
+		}));
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
-	return { pr, issueComments, reviewComments, reviews, reviewThreads, commits };
+	return { pr, issueComments, reviewComments, reviews, reviewThreads, commits, stateEvents };
 }
 
 async function fetchPRBundleFromGitHub(
