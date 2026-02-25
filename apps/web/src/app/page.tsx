@@ -20,7 +20,7 @@ export default async function HomePage({
 
 	return (
 		<div
-			className="relative min-h-screen bg-background"
+			className="relative min-h-screen bg-background overflow-x-hidden"
 			style={
 				{
 					"--background": "#030304",
