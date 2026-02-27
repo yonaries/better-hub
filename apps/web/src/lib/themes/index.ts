@@ -23,13 +23,14 @@ import {
 const themes: ThemeDefinition[] = [
 	hub,
 	vercel,
+	cloudflare,
 	supabase,
 	tailwind,
-	openai,
 	mintlify,
-	cloudflare,
-	gemini,
+	openai,
 	stripe,
+	gemini,
+	vesper,
 	ember,
 	zinc,
 	arctic,
@@ -37,7 +38,6 @@ const themes: ThemeDefinition[] = [
 	rabbit,
 	noir,
 	forest,
-	vesper,
 ];
 
 export type { ThemeColors, ThemeDefinition, ThemeVariant, ShikiTheme };
