@@ -95,9 +95,9 @@ type GitDataSyncJobType =
 	| "repo_discussions";
 
 // SECURITY: Only cache types that are safe to share across users belong here.
-// Repo-content types (file_content, repo_contents, repo_tree, repo_readme) are
-// excluded because private-repo data fetched by one user would leak to others
-// via the shared cache, bypassing GitHub permission checks.
+// Any data from repos (issues, PRs, code, branches, etc.) is excluded because
+// private-repo data fetched by one authorized user would leak to others via
+// the shared cache, bypassing GitHub permission checks.
 const SHAREABLE_CACHE_TYPES: ReadonlySet<string> = new Set([
 	"repo_branches",
 	"repo_tags",
@@ -122,8 +122,6 @@ const SHAREABLE_CACHE_TYPES: ReadonlySet<string> = new Set([
 	"org_repos",
 	"org_members",
 	"trending_repos",
-	"pr_bundle",
-	"person_repo_activity",
 ]);
 
 function isShareableCacheType(jobType: string): boolean {
@@ -809,6 +807,30 @@ async function fetchPullRequestFromGitHub(
 	return data;
 }
 
+export async function isBranchBehindBase(
+	owner: string,
+	repo: string,
+	baseRef: string,
+	headRef: string,
+	headOwner?: string | null,
+): Promise<boolean> {
+	const octokit = await getOctokit();
+	if (!octokit) return false;
+	try {
+		const headPart =
+			headOwner && headOwner !== owner ? `${headOwner}:${headRef}` : headRef;
+		const basehead = `${headPart}...${baseRef}`;
+		const { data } = await octokit.repos.compareCommitsWithBasehead({
+			owner,
+			repo,
+			basehead,
+		});
+		return (data.behind_by ?? 0) > 0;
+	} catch {
+		return false;
+	}
+}
+
 async function fetchPullRequestFilesFromGitHub(
 	octokit: Octokit,
 	owner: string,
@@ -957,7 +979,85 @@ async function fetchUserProfileFromGitHub(octokit: Octokit, username: string) {
 	return null;
 }
 
-async function fetchUserPublicReposFromGitHub(octokit: Octokit, username: string, perPage: number) {
+async function enrichMissingRepoLanguagesFromGraphQL<
+	T extends {
+		language?: string | null;
+		name: string;
+		owner?: { login?: string | null } | null;
+	},
+>(token: string, repos: T[]): Promise<T[]> {
+	const missing = repos
+		.map((repo, index) => ({ repo, index }))
+		.filter(
+			({ repo }) =>
+				!repo.language &&
+				typeof repo.name === "string" &&
+				typeof repo.owner?.login === "string",
+		)
+		.slice(0, 50);
+	if (missing.length === 0) return repos;
+
+	const aliases = missing.map(
+		(_item, i) =>
+			`r${i}: repository(owner: $owner${i}, name: $name${i}) { primaryLanguage { name } }`,
+	);
+	const variableDefinitions = missing
+		.flatMap((_item, i) => [`$owner${i}: String!`, `$name${i}: String!`])
+		.join(", ");
+	const variables = Object.fromEntries(
+		missing.flatMap(({ repo }, i) => [
+			[`owner${i}`, String(repo.owner?.login)],
+			[`name${i}`, repo.name],
+		]),
+	);
+	const query = `query(${variableDefinitions}) { ${aliases.join("\n")} }`;
+
+	try {
+		const response = await fetch("https://api.github.com/graphql", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${token}`,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({ query, variables }),
+			signal: AbortSignal.timeout(8_000),
+		});
+		if (!response.ok) return repos;
+		const json = (await response.json()) as {
+			data?: Record<
+				string,
+				{ primaryLanguage?: { name?: string | null } } | null
+			>;
+		};
+		if (!json.data) return repos;
+
+		const languageByIndex = new Map<number, string>();
+		for (let i = 0; i < missing.length; i++) {
+			const lang = json.data[`r${i}`]?.primaryLanguage?.name;
+			if (typeof lang === "string" && lang.trim()) {
+				languageByIndex.set(missing[i].index, lang);
+			}
+		}
+
+		if (languageByIndex.size === 0) return repos;
+		return repos.map((repo, idx) =>
+			languageByIndex.has(idx)
+				? { ...repo, language: languageByIndex.get(idx) ?? repo.language }
+				: repo,
+		);
+	} catch {
+		return repos;
+	}
+}
+
+type UserPublicRepo = Awaited<ReturnType<Octokit["repos"]["listForUser"]>>["data"][number];
+
+async function fetchUserPublicReposFromGitHub(
+	octokit: Octokit,
+	username: string,
+	perPage: number,
+	token?: string | null,
+): Promise<UserPublicRepo[]> {
 	// Fetch recently-updated repos for the listing + top-starred repos via
 	// search API for accurate profile scoring (listForUser can't sort by stars).
 	const half = Math.ceil(perPage / 2);
@@ -972,10 +1072,13 @@ async function fetchUserPublicReposFromGitHub(octokit: Octokit, username: string
 			})
 			.catch(() => null),
 	]);
-	if (!topStarred) return byUpdated.data;
+	if (!topStarred) {
+		if (!token) return byUpdated.data;
+		return enrichMissingRepoLanguagesFromGraphQL(token, byUpdated.data);
+	}
 	// Merge and deduplicate — recently-updated first, then top-starred fills gaps
 	const seen = new Set<number>();
-	const merged = [];
+	const merged: UserPublicRepo[] = [];
 	for (const repo of byUpdated.data) {
 		seen.add(repo.id);
 		merged.push(repo);
@@ -986,7 +1089,8 @@ async function fetchUserPublicReposFromGitHub(octokit: Octokit, username: string
 			merged.push(repo as (typeof byUpdated.data)[number]);
 		}
 	}
-	return merged;
+	if (!token) return merged;
+	return enrichMissingRepoLanguagesFromGraphQL(token, merged);
 }
 
 async function fetchUserPublicOrgsFromGitHub(octokit: Octokit, username: string) {
@@ -1343,6 +1447,7 @@ async function processGitDataSyncJob(
 				authCtx.octokit,
 				payload.username,
 				perPage,
+				authCtx.token,
 			);
 			await upsertCacheWithShared(
 				authCtx.userId,
@@ -2479,6 +2584,7 @@ export interface PRBundleData {
 		changed_files: number;
 		user: { login: string; avatar_url: string; type?: string } | null;
 		head: { ref: string; sha: string };
+		head_repo_owner?: string | null;
 		base: { ref: string; sha: string };
 		labels: { name: string; color: string | null; description: string | null }[];
 		reactions: ReactionSummary | undefined;
@@ -2547,6 +2653,7 @@ const PR_BUNDLE_QUERY = `
         author { __typename login avatarUrl }
         headRefName
         headRefOid
+        headRepository { owner { login } }
         baseRefName
         baseRefOid
         labels(first: 20) {
@@ -2777,6 +2884,7 @@ interface GQLPRNode {
 	author: GQLAuthor | null;
 	headRefName: string;
 	headRefOid: string;
+	headRepository?: { owner: { login: string } } | null;
 	baseRefName: string;
 	baseRefOid: string;
 	labels?: { nodes: GQLLabel[] };
@@ -2820,6 +2928,7 @@ function transformGraphQLPRBundle(node: GQLPRNode): PRBundleData {
 				}
 			: null,
 		head: { ref: node.headRefName, sha: node.headRefOid },
+		head_repo_owner: node.headRepository?.owner?.login ?? null,
 		base: { ref: node.baseRefName, sha: node.baseRefOid },
 		labels: (node.labels?.nodes ?? []).map((l) => ({
 			name: l.name,
@@ -5200,7 +5309,12 @@ export async function getUserPublicRepos(username: string, perPage = 30) {
 		jobType: "user_public_repos",
 		jobPayload: { username, perPage },
 		fetchRemote: (octokit) =>
-			fetchUserPublicReposFromGitHub(octokit, username, perPage),
+			fetchUserPublicReposFromGitHub(
+				octokit,
+				username,
+				perPage,
+				authCtx?.token ?? null,
+			),
 	});
 }
 
