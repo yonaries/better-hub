@@ -133,8 +133,6 @@ export type PinRemovedEvent = { type: "pin:removed"; owner: string; repo: string
 // ── Settings Events ───────────────────────────────────────────
 
 export type SettingsUpdatedEvent = { type: "settings:updated" };
-export type CodeThemeCreatedEvent = { type: "code-theme:created" };
-export type CodeThemeDeletedEvent = { type: "code-theme:deleted" };
 export type GitHubAccountAddedEvent = { type: "github-account:added" };
 export type GitHubAccountRemovedEvent = { type: "github-account:removed" };
 export type GitHubAccountSwitchedEvent = { type: "github-account:switched" };
@@ -175,8 +173,6 @@ export type MutationEvent =
 	| PinAddedEvent
 	| PinRemovedEvent
 	| SettingsUpdatedEvent
-	| CodeThemeCreatedEvent
-	| CodeThemeDeletedEvent
 	| GitHubAccountAddedEvent
 	| GitHubAccountRemovedEvent
 	| GitHubAccountSwitchedEvent;
