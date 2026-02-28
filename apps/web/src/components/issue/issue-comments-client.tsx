@@ -18,7 +18,6 @@ import type { IssueTimelineEvent } from "@/lib/github";
 import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 import { IssueTimelineEvents } from "@/components/issue/issue-timeline-events";
 import type { IssueTimelineEvent } from "@/lib/github";
-import { useMutationEvents } from "@/components/shared/mutation-event-provider";
 
 export interface IssueComment {
 	id: number;
@@ -166,7 +165,8 @@ export function IssueCommentsClient({
 						c.id === entry.id
 							? {
 									...c,
-									_optimisticStatus: "failed" as const,
+									_optimisticStatus:
+										"failed" as const,
 								}
 							: c,
 					),
